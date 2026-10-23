@@ -8,6 +8,9 @@ An Indian wedding invitation maker that runs entirely in the browser. Pick an or
 - Instagram sizes (9:16, 4:5, 1:1)
 - a music video invitation (true MP4 via WebCodecs in Chrome/Edge/Safari; WebM fallback)
 - a self-hosted wedding website (.zip)
+- **viral reel invitations**: 8-scene hand-painted watercolour wedding stories (Shiv–Parvati, Radha–Krishna, Sita–Ram, royal and modern), about 34 s, 9:16 MP4 in Full HD or 4K
+
+A **My Account** page saves your names, families, venue and functions on this device, so every new card or reel can be filled in with one tap.
 
 There's no account, server or build step. It's plain HTML, CSS and JavaScript (ES modules), so it runs as-is on **GitHub Pages**.
 
@@ -73,11 +76,15 @@ styles/main.css         Design system & layout
 styles/fonts.css        Self-hosted font faces (latin, devanagari, gurmukhi, arabic subsets)
 scripts/
   app.js                Router, navigation, theme, hero animations, template gallery, My Designs
-  studio.js             9-step wizard, live preview, undo/redo, autosave, downloads, sharing UI
+  studio.js             5-step card editor, live preview, undo/redo, autosave, downloads, sharing UI
+  reels.js              Viral reel gallery + 3-step reel editor (Personalize → Customize → Preview & download)
+  profile.js            My Account: saved wedding details on this device, auto-fill, export/import
   state.js              Design model, defaults, page list, undo/redo store, formats
   i18n.js               Card labels, Indian date/time formatting (English & Hindi)
   render/card.js        Canvas renderer: layout engine with auto-fit text, frames, pages
   render/reel.js        Cinematic reel videos: painted sacred scenes, deity symbols, timed text scenes
+  render/watercolor.js  Procedural watercolour engine: paper, washes, granulation, figures seen from behind, sacred objects
+  render/story.js       8-scene story timeline + 5 viral templates (Divine Union, Vrindavan Prem, Siya Ram Vivah, Rajwada Royal, Pastel Promise)
   render/motifs.js      Original ornaments: lotus, paisley, mandala, marigold, toran, diya, arches…
   data/templates.js     95 template definitions + palettes + fonts (data-driven)
   data/culture.js       26 traditions, 80 blessings/verses (Ram Charit Manas, Valmiki Ramayan, Vedic, Shiv, Krishna, Ganesh, Lakshmi…), 45 function presets, wording
@@ -110,7 +117,9 @@ Append an object to `TEMPLATES` in `scripts/data/templates.js`. Choose a palette
 - Template gallery: 95 original templates (82 suitable for Hindu weddings, incl. painted sacred-scene designs: traditional, devotional, folk-art, modern and trending) across Hindu (regional), Sikh, Muslim, Christian, Jain, Buddhist, Parsi and non-religious styles, with search, style chips, filters, sorting, "show more", a preview modal and an empty state
 - Simple 5-step editor (Choose design → Your details → Functions → Style & music → Download) with optional sections folded away, validation, free navigation and autosave
 - Couple and family details, all optional lines with show/hide, editable wording presets in English and Hindi
-- 22 tradition presets, 31 blessings and verses (Ram Charit Manas chaupais with meanings, shlokas, Sikh, Muslim, Christian KJV, Jain, Buddhist, Parsi) or your own, 45 function presets plus custom functions
+- 26 tradition presets, 80 blessings and verses (Ram Charit Manas chaupais with meanings, Valmiki Ramayan, Vedic mantras, Shiv, Krishna, Ganesh, Lakshmi, Sikh, Muslim, Christian KJV, Jain, Buddhist, Parsi) or your own, 45 function presets plus custom functions
+- Viral reel invitations: 5 watercolour story templates with 8 scenes (opening, gold monogram drawn stroke by stroke, divine setting, invitation, functions, wedding, blessings, closing), editable text layers, monogram styles, accents, fonts, background intensity, petals, music with fades, Full HD or 4K MP4, poster PNG, scene navigator and a final review
+- My Account: saved profiles on this device, default profile, auto-fill for new cards and reels, “Fill my details” / “Save to my account” in both editors, export/import
 - Functions: add, rename, edit, reorder, duplicate, delete, sort by date, timeline view, per-function photo, QR, message, dress code and an optional separate template
 - Editor: palettes, custom colours, fonts for names, headings, body and Devanagari, text, name and line-spacing sizes, weight, alignment, frames, ornament level, background pattern, element visibility, photo upload with zoom and position plus four frame shapes, undo/redo (buttons and <kbd>Ctrl/Cmd+Z</kbd>), reset styling, duplicate, start over, and Easy/Advanced modes
 - English, Hindi and bilingual cards with Hindi dates and times (“रात्रि 8:00 बजे”) and optional Devanagari numerals

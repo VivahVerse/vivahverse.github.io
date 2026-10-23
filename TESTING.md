@@ -48,6 +48,24 @@ Run these checks locally (`python3 -m http.server 8000`) and again on the live G
 - [ ] Export video shows progress, Cancel works, and the finished file plays with sound
 - [ ] Check the format label (MP4 or WebM) is correct for the browser
 
+## Viral reels (#/reels)
+- [ ] Five template cards show painted thumbnails. **Preview** plays the animation in a dialog.
+- [ ] **Use this template** opens the editor with 8 scenes, about 34 s
+- [ ] Typing the bride's name updates the invitation and monogram scenes live
+- [ ] Two functions on the same day and venue show as one scene (“Haldi & Mehendi”). Marking a different main ceremony moves it to the “Wedding” scene.
+- [ ] Add, remove and reorder functions. Switch template, language (Hindi), verse (Ram Charit Manas), monogram style, accent, fonts, background, side, petals and length.
+- [ ] Play and pause with music. The scrubber and scene chips jump to scenes.
+- [ ] Step 3 lists missing details. **Create MP4 video** shows progress, can be cancelled, and downloads a 1080×1920 MP4 of about 34 s that matches the preview.
+- [ ] **Download poster (PNG)** saves 1080×1920
+- [ ] The reel appears in My Designs with a painted thumbnail and opens in the reel editor
+
+## My Account (#/account)
+- [ ] Create a profile, save, reload: it is still there and marked Default
+- [ ] **Card** and **Reel** buttons open new designs filled with the saved names, venue and functions
+- [ ] In either editor, **Save to my account** stores the current details. **Fill my details** fills them, and asks before replacing functions.
+- [ ] Export, then Import: a copy appears. Delete asks first.
+- [ ] Turning off auto-fill makes new designs start with the sample text
+
 ## Sharing
 - [ ] **Send on WhatsApp** opens WhatsApp or WhatsApp Web with the edited message
 - [ ] **Share invitation image** opens the share sheet on a phone, or downloads with a notice on desktop
