@@ -4,6 +4,7 @@ import * as M from './motifs.js';
 import { TEMPLATE_MAP, PALETTES, TEMPLATES } from '../data/templates.js';
 import { L, fmtDate, fmtTime, fmtTimeRange, fmtDots, toDeva } from '../i18n.js';
 import { invocationText } from '../state.js';
+import { drawSceneCard } from './reel.js';
 
 // ---------- assets ----------
 const imgCache = new Map();
@@ -442,6 +443,7 @@ function drawBackground(ctx, W, H, tpl, pal, design, U) {
     ctx.fillStyle = hexA(pal.bg2, 0.16); ctx.fill();
     ctx.restore();
   }
+  if (bg.type === 'scene') drawSceneCard(ctx, W, H, bg.scene, pal, tpl.id, fontsFor(design, tpl));
   if (bg.type === 'sunburst') M.sunburst(ctx, W / 2, H * 0.42, Math.max(W, H) * 1.2, pal.bg2, 0.35, 48);
   if (bg.type === 'split') {
     const h = H * 0.36;
@@ -983,6 +985,15 @@ export function renderPage(ctx, W, H, design, page = { kind: 'cover' }, opts = {
   ctx.restore();
   const used = drawOrnaments(ctx, w, h, tpl, pal, design, U, box, page, ornA);
   const content = { x: box.x, y: box.y + used.top, w: box.w, h: box.h - used.top - used.bottom };
+  if (tpl.textArea && h > w * 1.05) { // scene templates keep text in the calm part of the painting
+    const y0 = h * tpl.textArea[0], y1 = h * tpl.textArea[1];
+    content.y = Math.max(content.y, y0); content.h = Math.min(box.y + box.h - used.bottom, y1) - content.y;
+  }
+  if (tpl.veil) {
+    const vg = ctx.createRadialGradient(w / 2, content.y + content.h / 2, 0, w / 2, content.y + content.h / 2, Math.max(content.w, content.h) * 0.7);
+    vg.addColorStop(0, dark ? 'rgba(10,10,30,.4)' : 'rgba(255,250,244,.62)'); vg.addColorStop(1, dark ? 'rgba(10,10,30,0)' : 'rgba(255,250,244,0)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+  }
   if (opts.debugBox) { ctx.strokeStyle = 'red'; ctx.strokeRect(content.x, content.y, content.w, content.h); }
 
   const F = fontsFor(design, tpl);
