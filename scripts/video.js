@@ -5,6 +5,8 @@ import { renderPage, ensureFonts, preloadImages, paletteFor, templateById } from
 import { FORMATS } from './state.js';
 import { rng } from './render/motifs.js';
 import { renderTrack, decodeFile, audioCtx } from './music.js';
+import { ReelTimeline } from './render/reel.js';
+export const makeTimeline = (design, W, H) => (design.video.reel && design.video.reel !== 'cards' ? new ReelTimeline(design, W, H) : new Timeline(design, W, H));
 
 export const VIDEO_FORMATS = {
   story: { label: '9:16 · WhatsApp Status / Reels', w: 1080, h: 1920 },
@@ -155,7 +157,7 @@ export async function recordVideo(design, { audio, onProgress, signal }) {
   const W = fmt.w, H = fmt.h;
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  const tl = new Timeline(design, W, H);
+  const tl = makeTimeline(design, W, H);
   // pre-render cached scenes
   tl.scenes.forEach((_, i) => tl.sceneCanvas(i, 1));
   tl.draw(ctx, 0);
@@ -261,7 +263,7 @@ export async function encodeMP4(design, { audio, onProgress, signal }) {
   const W = fmt.w, H = fmt.h, FPS = 30;
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  const tl = new Timeline(design, W, H);
+  const tl = makeTimeline(design, W, H);
   const total = tl.total;
   const muxer = new Mux.Muxer({
     target: new Mux.ArrayBufferTarget(),

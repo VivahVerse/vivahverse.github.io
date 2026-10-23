@@ -3,7 +3,7 @@ import { TEMPLATES, CATEGORIES, CULTURE_TAGS, REGIONS, TEMPLATE_MAP } from './da
 import { cultureForTemplate } from './data/culture.js';
 import { defaultDesign, uid } from './state.js';
 import { renderPage, ensureFonts } from './render/card.js';
-import { Timeline } from './video.js';
+import { makeTimeline } from './video.js';
 import { $, $$, esc, icon, toast, openModal, closeModal, confirmDialog, promptDialog, reducedMotion } from './ui.js';
 import { storage, prefs } from './storage.js';
 import { openStudio, leaveStudio, exportBackup, migrate } from './studio.js';
@@ -87,8 +87,8 @@ function initHome() {
   };
   draw();
   Promise.all([ensureFonts(a), ensureFonts(b)]).then(draw);
-  const v = sample('jharokha', 'rajasthani'); v.video.particles = 'petals';
-  const v2 = sample('bagh', 'sikh'); v2.video.particles = 'sparkles'; v2.wording.invocation = 'ikonkar';
+  const v = sample('kashi-ghat', 'hindu-shiv'); v.video.particles = 'petals'; v.video.reel = 'kashi';
+  const v2 = sample('vrindavan', 'hindu-krishna'); v2.video.particles = 'petals'; v2.video.reel = 'vrindavan';
   Promise.all([ensureFonts(v), ensureFonts(v2)]).then(() => { phoneLoop($('#hero-phone'), v); phoneLoop($('#video-phone'), v2); });
   buildFilters();
   renderGallery();
@@ -96,7 +96,7 @@ function initHome() {
 
 function phoneLoop(canvas, design) {
   const W = canvas.width, H = canvas.height;
-  const tl = new Timeline(design, W, H);
+  const tl = makeTimeline(design, W, H);
   const ctx = canvas.getContext('2d');
   if (reducedMotion()) { tl.draw(ctx, 4); return; }
   let t0 = performance.now(), visible = true;

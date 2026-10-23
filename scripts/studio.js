@@ -8,9 +8,10 @@ import { $, $$, esc, icon, toast, confirmDialog, openModal, closeModal, download
 import { storage, prefs } from './storage.js';
 import * as EX from './exporter.js';
 import { TRACKS, SONG_IDEAS, youtubeSearch, parseMusicLink, renderTrack, decodeFile, playPreview, stopPreview, isPlaying } from './music.js';
-import { Timeline, VIDEO_FORMATS, exportBestVideo, getMusic, videoSupport } from './video.js';
+import { makeTimeline, VIDEO_FORMATS, exportBestVideo, getMusic, videoSupport } from './video.js';
 import { invitationText, waLink, rsvpMessage, hashtags, captions, shareFile, shareText, canShareFiles, qrCanvas, isUrl, sortedEvents } from './share.js';
 import { buildMicrosite } from './microsite.js';
+import { REEL_THEMES, REEL_MAP, ReelTimeline } from './render/reel.js';
 import { CONFIG } from './config.js';
 
 const idle = fn => (window.requestIdleCallback ? requestIdleCallback(() => fn(), { timeout: 200 }) : setTimeout(fn, 1));
@@ -180,7 +181,7 @@ P[4] = () => {
   <h2>Family &amp; wording</h2>
   <p class="lead">Use the suggested wording or write your own. Tick <em>Show</em> to include a line or untick it to hide it.</p>
   <fieldset class="fieldset"><div class="fs-head"><span class="fs-title">Invocation / blessing</span><label class="vis"><input type="checkbox" data-bind="show.invocation" ${d.show.invocation ? 'checked' : ''}> Show</label></div>
-    ${invocationSelect(d)}
+    ${verseLibrary(d)}
     ${d.wording.invocation === 'custom' ? `<div class="fgrid" style="margin-top:10px">${bilingual('Your invocation', 'wording.invocationCustom', { full: true, alwaysHi: true })}</div>` : `<div class="verse-preview"><p lang="hi">${esc(invocationText(d, d.lang === 'en' ? 'en' : 'hi')) || 'No invocation will be shown.'}</p>${INVOCATIONS.find(i => i.id === d.wording.invocation)?.translit ? `<small><em>${esc(INVOCATIONS.find(i => i.id === d.wording.invocation).translit.replace(/\n/g, ' · '))}</em></small>` : ''}${INVOCATIONS.find(i => i.id === d.wording.invocation)?.meaning ? `<small>${esc(INVOCATIONS.find(i => i.id === d.wording.invocation).meaning)}</small>` : ''}</div>`}
     ${INVOCATIONS.find(i => i.id === d.wording.invocation)?.group === 'Ram Charit Manas' ? '<p class="muted" style="margin-top:6px">From Shri Ramcharitmanas (Goswami Tulsidas), Bal Kand. The verse is printed in Devanagari in every language option. Text follows the common Gita Press spelling; please check with your family pandit if you prefer a different reading.</p>' : ''}
   </fieldset>
@@ -327,6 +328,7 @@ P[7] = () => {
   return `
   <h2>Music &amp; video</h2>
   <p class="lead">Turn your cards into an animated invitation. Press <strong>Play preview</strong> to watch it in the preview area.</p>
+  ${reelPicker(d)}
   <fieldset class="fieldset"><legend>Video style</legend>
     <div class="radio-cards">${VIDEO_STYLES.map(([id, t, sub]) => `<label class="radio-card"><input type="radio" name="vstyle" value="${id}" data-vstyle="${id}" ${(v.style || 'traditional') === id ? 'checked' : ''}><strong>${t}</strong><small>${sub}</small></label>`).join('')}</div>
     <div style="margin-top:10px">${check('Open with the chaupai / mantra / blessing (shown large, then the invitation)', 'video.verseIntro')}</div>
@@ -466,8 +468,7 @@ R[1] = () => {
   <h2>Choose your design</h2>
   <p class="lead">Pick a tradition and a design. You can change either at any time without losing your details.</p>
   <div class="fgrid" style="margin-bottom:12px">
-    <div class="field"><span><label for="culture-pick">Wedding tradition</label></span>
-      <select id="culture-pick">${CULTURES.map(c => `<option value="${c.id}" ${d.culture === c.id ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}</select></div>
+    <div class="field full"><span class="label">Wedding tradition</span>${traditionSummary(d)}</div>
     <div class="field"><span><label for="f-lang">Language on the card</label></span>
       <select id="f-lang" data-bind="lang">${LANGUAGES.map(l => `<option value="${l.id}" ${d.lang === l.id ? 'selected' : ''}>${esc(l.label)}</option>`).join('')}</select></div>
   </div>
@@ -491,7 +492,7 @@ R[2] = () => {
   <h2>Your details</h2>
   <p class="lead">Only the names and the date are required. Everything else is optional and already filled with editable suggestions.</p>
   ${names}${date}
-  ${fold('Blessing, mantra or verse', invocation, d.culture === 'hindu-ram', 'Ram Charit Manas chaupais, shlokas, Gurbani, Quran & Bible verses')}
+  ${fold('Blessing, mantra or verse', invocation, HINDU_TRADS.includes(d.culture) || d.culture === 'hindu-ram', `${INVOCATIONS.length - 2} options: Ram Charit Manas, Ramayan, Vedic mantras, Shiv, Krishna, Ganesh & more`)}
   ${fold('Couple photo', photo, false, 'optional')}
   ${fold('Parents & family', parents + grand + hosts, false, 'names of parents, grandparents and hosts')}
   ${fold('Invitation wording', opening + message + closing, false, 'opening line, message, closing')}
@@ -552,6 +553,110 @@ function downloadTiles() {
   </div>
   <button class="btn btn-gold btn-lg dl-all" data-quick="all">${icon('download')}Download everything (ZIP)</button>
   <p class="muted" style="text-align:center;margin:6px 0 18px">PDF, every page as JPG, cover as PNG, function cards, save-the-date and Instagram sizes in one file.</p>`;
+}
+
+
+// ---------- tradition picker ----------
+const TRAD_META = {
+  'hindu-north': ['ॐ', 'North Indian Hindu', 'Tilak, haldi, sangeet, baraat & pheras'],
+  'hindu-ram': ['राम', 'Ram–Sita', 'Ram Charit Manas chaupais & Ayodhya designs'],
+  'hindu-shiv': ['शिव', 'Shiv–Parvati', 'Kashi & Kailash designs, Shiv mantras'],
+  'hindu-krishna': ['राधे', 'Radha–Krishna', 'Vrindavan designs, Krishna mantras'],
+  'hindu-ganesh': ['गं', 'Shri Ganesh', 'Vighnaharta designs, Ganesh mantras'],
+  'hindu-lakshmi': ['श्री', 'Lakshmi–Narayan', 'Lotus designs, Vishnu & Lakshmi mantras'],
+  'hindu-vedic': ['अग्नि', 'Vedic / Arya Samaj', 'Rigveda vivah mantras & sacred fire'],
+  'hindu-south': ['த', 'Tamil', 'Nichayathartham, nalangu, muhurtham'],
+  'telugu': ['తె', 'Telugu', 'Pellikuthuru, snathakam, jeelakarra bellam'],
+  'malayali': ['മ', 'Malayali', 'Kasavu & Kerala designs'],
+  'kannada': ['ಕ', 'Kannada', 'Mysuru silk designs'],
+  'marathi': ['म', 'Marathi', 'Sakharpuda, haldi, Shubhamangal Savdhan'],
+  'gujarati': ['ગ', 'Gujarati', 'Ganesh puja, mehendi, garba'],
+  'bengali': ['ব', 'Bengali', 'Aiburobhat, gaye holud, bou bhaat'],
+  'odia': ['ଓ', 'Odia', 'Pattachitra designs'],
+  'assamese': ['অ', 'Assamese', 'Juron & gamosa designs'],
+  'bihari': ['मि', 'Bihari / Maithil', 'Madhubani designs, Ram Charit Manas'],
+  'rajasthani': ['रा', 'Rajasthani', 'Jharokha, leheriya & palace designs'],
+  'kashmiri': ['क', 'Kashmiri', 'Livun, maenzraat, chinar designs'],
+  'sikh': ['ੴ', 'Sikh', 'Roka, chunni, Anand Karaj'],
+  'muslim': ['☪', 'Muslim', 'Manjha, mehndi, Nikah, walima'],
+  'christian': ['✝', 'Christian', 'Roce, church wedding, reception'],
+  'jain': ['जै', 'Jain', 'Navkar mantra, lotus designs'],
+  'buddhist': ['☸', 'Buddhist', 'Buddha vandana, dhamma chakra'],
+  'parsi': ['P', 'Parsi', 'Adarni, madhavsaro, lagan'],
+  'universal': ['♡', 'Non-religious', 'Clean, modern, no religious text'],
+};
+const HINDU_TRADS = ['hindu-north', 'hindu-ram', 'hindu-shiv', 'hindu-krishna', 'hindu-ganesh', 'hindu-lakshmi', 'hindu-vedic', 'hindu-south', 'telugu', 'malayali', 'kannada', 'marathi', 'gujarati', 'bengali', 'odia', 'assamese', 'bihari', 'rajasthani', 'kashmiri'];
+const OTHER_TRADS = ['sikh', 'muslim', 'christian', 'jain', 'buddhist', 'parsi', 'universal'];
+const tradTile = (id, cur) => { const [g, n, sub] = TRAD_META[id] || ['•', id, '']; return `<button type="button" class="trad-tile" data-trad="${id}" aria-pressed="${cur === id}"><span class="trad-ico" lang="hi">${g}</span><span><strong>${esc(n)}</strong><small>${esc(sub)}</small></span></button>`; };
+function traditionSummary(d) {
+  const [g, n, sub] = TRAD_META[d.culture] || ['•', d.culture, ''];
+  return `<div class="trad-current"><span class="trad-ico" lang="hi">${g}</span><span class="trad-cur-txt"><strong>${esc(n)}</strong><small>${esc(sub)}</small></span><button type="button" class="btn btn-maroon btn-sm" data-act="pick-trad">Change</button></div>`;
+}
+function openTraditionPicker() {
+  const d = D();
+  const body = openModal('Choose your wedding tradition', `<p class="muted" style="margin-bottom:12px">This sets a matching design, blessing or verse, list of functions and reel video. You can still change each one.</p>
+    <p class="label" style="margin-bottom:8px">Hindu</p><div class="trad-grid">${HINDU_TRADS.map(id => tradTile(id, d.culture)).join('')}</div>
+    <p class="label" style="margin:16px 0 8px">Other traditions</p><div class="trad-grid">${OTHER_TRADS.map(id => tradTile(id, d.culture)).join('')}</div>`);
+  body.addEventListener('click', e => { const t = e.target.closest('[data-trad]'); if (!t) return; closeModal(); changeCulture(t.dataset.trad); });
+}
+
+// ---------- verse library ----------
+const VERSE_GROUPS = ['Ram Charit Manas', 'Valmiki Ramayan & Ram stotra', 'Vedic mantra', 'Shiv & Parvati', 'Radha & Krishna', 'Ganesh', 'Vishnu & Lakshmi', 'Devi', 'Regional', 'General', 'Sikh', 'Muslim', 'Christian', 'Jain', 'Buddhist', 'Parsi', 'Universal'];
+const VERSE_DEFAULT = { 'hindu-ram': 'Ram Charit Manas', 'bihari': 'Ram Charit Manas', 'hindu-shiv': 'Shiv & Parvati', 'hindu-krishna': 'Radha & Krishna', 'hindu-ganesh': 'Ganesh', 'hindu-lakshmi': 'Vishnu & Lakshmi', 'hindu-vedic': 'Vedic mantra', sikh: 'Sikh', muslim: 'Muslim', christian: 'Christian', jain: 'Jain', buddhist: 'Buddhist', parsi: 'Parsi', universal: 'Universal' };
+let verseFilter = null, verseQuery = '';
+function verseLibrary(d) {
+  if (!verseFilter) verseFilter = VERSE_DEFAULT[d.culture] || (HINDU_TRADS.includes(d.culture) ? 'Ram Charit Manas' : 'All');
+  const counts = Object.fromEntries(VERSE_GROUPS.map(g => [g, INVOCATIONS.filter(i => i.group === g).length]));
+  return `<div class="verse-lib">
+    <div class="chips verse-chips" role="group" aria-label="Verse categories">${['All', ...VERSE_GROUPS].map(g => `<button type="button" class="chip" data-vgroup="${esc(g)}" aria-pressed="${verseFilter === g}">${esc(g)}${g !== 'All' ? ` <span class="muted">${counts[g]}</span>` : ''}</button>`).join('')}</div>
+    <label class="search" style="margin:8px 0">${icon('search')}<span class="sr">Search verses</span><input type="search" id="verse-search" placeholder="Search: विवाह, Sita, Saptapadi, Shiv…" value="${esc(verseQuery)}"></label>
+    <div class="verse-list" id="verse-list">${verseItems(d)}</div>
+    <div class="inline" style="margin-top:8px"><button type="button" class="btn btn-text btn-sm" data-verse="custom">${icon('edit')}Write my own</button><button type="button" class="btn btn-text btn-sm" data-verse="none">No verse</button></div>
+  </div>`;
+}
+function verseItems(d) {
+  const q = verseQuery.toLowerCase().trim();
+  const list = INVOCATIONS.filter(i => i.id !== 'none' && i.id !== 'custom')
+    .filter(i => verseFilter === 'All' || i.group === verseFilter)
+    .filter(i => !q || `${i.label} ${i.text.hi} ${i.text.en} ${i.translit || ''} ${i.meaning || ''} ${i.group}`.toLowerCase().includes(q));
+  if (!list.length) return '<p class="muted" style="padding:12px">No verses match.</p>';
+  return list.map(i => `<button type="button" class="verse-item" data-verse="${i.id}" aria-pressed="${d.wording.invocation === i.id}">
+    <span class="v-group">${esc(i.group)}</span>
+    <span class="v-text" lang="hi">${esc(i.text.hi || i.text.en)}</span>
+    ${i.translit ? `<small class="v-tr">${esc(i.translit.replace(/\n/g, ' · '))}</small>` : ''}
+    ${i.meaning ? `<small>${esc(i.meaning)}</small>` : ''}
+  </button>`).join('');
+}
+
+// ---------- reel theme picker ----------
+function reelPicker(d) {
+  const v = d.video;
+  const isReel = v.reel && v.reel !== 'cards';
+  return `<fieldset class="fieldset"><legend>Video type</legend>
+    <div class="radio-cards">
+      <label class="radio-card"><input type="radio" name="vkind" data-vkind="reel" ${isReel ? 'checked' : ''}><strong>Cinematic reel</strong><small>Instagram-style: painted sacred scene, deity symbol, mantra, names, date, functions</small></label>
+      <label class="radio-card"><input type="radio" name="vkind" data-vkind="cards" ${!isReel ? 'checked' : ''}><strong>Animated cards</strong><small>Your invitation pages with soft transitions</small></label>
+    </div>
+    ${isReel ? `<p class="label" style="margin:14px 0 8px">Reel theme</p><div class="reel-grid" id="reel-grid">${REEL_THEMES.map(t => `<button type="button" class="reel-th" data-reel="${t.id}" aria-pressed="${v.reel === t.id}"><canvas width="135" height="240" aria-hidden="true"></canvas><strong>${esc(t.name)}</strong><small>${esc(t.deity)}</small></button>`).join('')}</div>
+    <p class="muted" style="margin-top:8px">${esc(REEL_MAP[v.reel]?.desc || '')}</p>` : ''}
+  </fieldset>`;
+}
+let reelJob = 0;
+function drawReelThumbs() {
+  const job = ++reelJob;
+  const btns = $$('#reel-grid .reel-th');
+  let i = 0;
+  const d = structuredClone(D());
+  const next = () => {
+    if (job !== reelJob || i >= btns.length) return;
+    const b = btns[i++]; const c = b.querySelector('canvas');
+    d.video.reel = b.dataset.reel;
+    const tl = new ReelTimeline(d, c.width, c.height);
+    const sc = tl.scenes.find(x => x.kind === 'couple') || tl.scenes[0];
+    tl.draw(c.getContext('2d'), sc.start + 2.2);
+    idle(next);
+  };
+  next();
 }
 
 // ---------- pages / preview ----------
@@ -635,7 +740,7 @@ function stepErrors(step) {
 
 function afterPanel() {
   if (ui.step === 1) { drawMiniThumbs(); applyTplFilter(); }
-  if (ui.step === 4) { updateVideoLen(); updateLinkBox(); }
+  if (ui.step === 4) { updateVideoLen(); updateLinkBox(); drawReelThumbs(); }
   if (ui.step === 5) { updateWa(); drawQRBox(); $('details.fold:has(#pv-grid)')?.addEventListener('toggle', e => e.target.open && drawPreviewGrid(), { once: true }); }
 }
 
@@ -681,7 +786,7 @@ function drawPreviewGrid() {
 }
 function updateVideoLen() {
   const el = $('#video-len'); if (!el) return;
-  const tl = new Timeline(D(), 10, 10);
+  const tl = makeTimeline(D(), 10, 10);
   el.textContent = `Duration about ${Math.round(tl.total)} seconds · ${tl.scenes.length} scenes · ${VIDEO_FORMATS[D().video.format].w}×${VIDEO_FORMATS[D().video.format].h}`;
 }
 function updateWa() {
@@ -803,11 +908,19 @@ async function onClick(e) {
   if (t.dataset.page != null && t.closest('#pv-grid')) { ui.page = +t.dataset.page; renderTabs(); schedulePreview(); openStageMobile(); return; }
   if (t.dataset.savedate) { ui.page = 'sd'; renderTabs(); schedulePreview(); openStageMobile(); return; }
   if (t.dataset.goto) { goStep(+t.dataset.goto, { force: true }); return; }
+  if (t.dataset.trad && !t.closest('#modal')) return;
+  if (t.dataset.vgroup) { verseFilter = t.dataset.vgroup; $$('[data-vgroup]').forEach(b => b.setAttribute('aria-pressed', b === t)); $('#verse-list').innerHTML = verseItems(d); return; }
+  if (t.dataset.verse) {
+    store.update(x => { x.wording.invocation = t.dataset.verse; x.show.invocation = t.dataset.verse !== 'none'; });
+    renderPanel({ keepScroll: true }); return;
+  }
+  if (t.dataset.reel) { store.update(x => { x.video.reel = t.dataset.reel; const th = REEL_MAP[t.dataset.reel]; if (th && x.video.track !== 'upload') x.video.track = th.track; }); $$('[data-reel]').forEach(b => b.setAttribute('aria-pressed', b === t)); updateVideoLen(); const n = $('#reel-grid + p'); if (n) n.textContent = REEL_MAP[t.dataset.reel]?.desc || ''; return; }
   if (t.dataset.tfilter) { tplFilter = t.dataset.tfilter; $$('[data-tfilter]').forEach(b => b.setAttribute('aria-pressed', b === t)); applyTplFilter(); return; }
   if (t.dataset.quick) { quickDownload(t.dataset.quick, t); return; }
   if (t.dataset.dl) { doDownload(t.dataset.dl, t); return; }
   if (t.dataset.copyCap != null) { (await copyText(captions(d)[+t.dataset.copyCap])) ? toast('Caption copied.', 'ok') : toast('Copy failed. Select the text and copy it manually.', 'err'); return; }
   switch (act) {
+    case 'pick-trad': openTraditionPicker(); break;
     case 'next': goStep(ui.step + 1); break;
     case 'back': goStep(ui.step - 1, { force: true }); break;
     case 'apply-tpl': store.update(x => { x.templateId = t.dataset.tpl; }); renderPanel({ keepScroll: true }); toast(`Template changed to ${TEMPLATE_MAP[t.dataset.tpl].name}.`, 'ok'); break;
@@ -910,6 +1023,10 @@ async function onChange(e) {
   if (el.id === 'dl-page') { ui.page = el.value === 'sd' ? 'sd' : +el.value; renderTabs(); schedulePreview(); return; }
   if (el.id === 'qr-target') { drawQRBox(); return; }
   if (el.dataset.upload) return handleUpload(el);
+  if (el.dataset.vkind) {
+    store.update(x => { x.video.reel = el.dataset.vkind === 'reel' ? (REEL_MAP[x.video.lastReel] ? x.video.lastReel : (CULTURES.find(c => c.id === x.culture)?.reel || 'kashi')) : (x.video.lastReel = x.video.reel, 'cards'); });
+    renderPanel({ keepScroll: true }); return;
+  }
   if (el.dataset.vstyle) {
     const pr = VIDEO_PRESETS[el.dataset.vstyle];
     store.update(x => { const keepTrack = x.video.track === 'upload'; Object.assign(x.video, pr, { style: el.dataset.vstyle }); if (keepTrack) x.video.track = 'upload'; });
@@ -923,11 +1040,14 @@ async function changeCulture(id) {
   const d = D();
   const replace = await confirmDialog(`Use ${c.label} suggestions?`, `This sets the invocation and can replace your functions with: ${c.events.map(e => EVENT_PRESETS[e].name.en).join(', ')}. Choose “Replace functions” to swap them, or Cancel to keep your current functions.`, 'Replace functions');
   store.update(x => {
-    x.culture = id; x.wording.invocation = c.invocation;
+    x.culture = id; x.wording.invocation = c.invocation; x.show.invocation = c.invocation !== 'none';
+    if (TEMPLATE_MAP[c.template]) x.templateId = c.template;
+    if (x.video.reel !== 'cards') x.video.reel = c.reel || (HINDU_TRADS.includes(id) ? 'mandap' : 'modern');
     if (replace) x.events = eventsForCulture(id, x.wedding.date).map(ev => ({ ...ev, venue: x.wedding.venue, address: x.wedding.address, maps: x.wedding.maps }));
   });
   renderPanel({ keepScroll: true });
-  toast(replace ? 'Functions and invocation updated.' : 'Invocation updated. Your functions were kept.', 'ok');
+  verseFilter = null;
+  toast(`${TRAD_META[id]?.[1] || c.label}: design, verse and reel updated${replace ? ', functions replaced' : ''}.`, 'ok');
 }
 
 async function handleUpload(el) {
@@ -1002,7 +1122,7 @@ async function toggleVideoPreview() {
   const f = VIDEO_FORMATS[d.video.format];
   const k = 640 / Math.max(f.w, f.h);
   const W = Math.round(f.w * k), H = Math.round(f.h * k);
-  const tl = new Timeline(structuredClone(d), W, H);
+  const tl = makeTimeline(structuredClone(d), W, H);
   let buf = null;
   try { buf = await musicBuffer(tl.total + 2); } catch (e) { toast(e.message, 'err'); }
   const cv = $('#stage-canvas');
@@ -1037,7 +1157,7 @@ async function exportVideo(btn) {
   box.innerHTML = `<div class="progress" role="progressbar" aria-label="Video export progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><p class="muted vp-text" style="margin-top:6px">Preparing music…</p>`;
   const bar = box.querySelector('.progress'), fill = bar.querySelector('i'), txt = box.querySelector('.vp-text');
   try {
-    const { total } = new Timeline(d, 10, 10);
+    const { total } = makeTimeline(d, 10, 10);
     const audio = await getMusic(d, getUploadBlob, total + 2);
     if (d.video.track === 'upload' && !audio) throw new Error('The uploaded song could not be found. Please choose the file again.');
     txt.textContent = 'Creating your video…';
@@ -1253,7 +1373,7 @@ export function migrate(d) {
 function init() {
   initialised = true;
   const panel = $('#panel');
-  panel.addEventListener('input', e => { if (e.target.id === 'mini-search') { applyTplFilter(); return; } if (e.target.type !== 'file' && !e.target.dataset.preset && e.target.id !== 'culture-pick' && e.target.type !== 'radio' && e.target.type !== 'checkbox' && e.target.tagName !== 'SELECT') onInput(e); else if (e.target.id === 'wa-text') updateWa(); });
+  panel.addEventListener('input', e => { if (e.target.id === 'mini-search') { applyTplFilter(); return; } if (e.target.id === 'verse-search') { verseQuery = e.target.value; $('#verse-list').innerHTML = verseItems(D()); return; } if (e.target.type !== 'file' && !e.target.dataset.preset && e.target.id !== 'culture-pick' && e.target.type !== 'radio' && e.target.type !== 'checkbox' && e.target.tagName !== 'SELECT') onInput(e); else if (e.target.id === 'wa-text') updateWa(); });
   panel.addEventListener('change', onChange);
   panel.addEventListener('click', onClick);
   $('#stepper').addEventListener('click', e => { const b = e.target.closest('[data-step]'); if (b) goStep(+b.dataset.step, { force: true }); });
