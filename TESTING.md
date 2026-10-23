@@ -15,7 +15,11 @@ Run these checks locally (`python3 -m http.server 8000`) and again on the live G
 - [ ] **Preview** opens a modal with 5 pages. <kbd>Esc</kbd> closes it and focus returns.
 - [ ] **Customize** opens the studio with that template and suitable tradition presets
 
-## Wizard
+## Editor (5 steps)
+- [ ] Step 1: tradition chips (Hindu, Sikh, Muslim…) and search filter the 73 designs
+- [ ] Step 2: choose a Ram Charit Manas chaupai; it appears in Devanagari at the top of the card
+- [ ] Step 4: paste a YouTube link, see “link added”, press “Listen here”
+- [ ] Step 5: PNG, JPG, PDF, Create MP4, Website ZIP and “Download everything” all download
 - [ ] Clear the bride's name, press **Next**: the field is highlighted with a message and you stay on the step
 - [ ] Clicking a step in the progress bar jumps there, and data entered earlier is still there
 - [ ] Switching language to Hindi or bilingual shows the Hindi fields, and the preview updates

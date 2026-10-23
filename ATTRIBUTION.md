@@ -1,8 +1,8 @@
 # Credits & licences
 
 ## Original to this project
-- **Invitation templates and ornaments.** The 16 templates and every motif (lotus, paisley, mandala, marigold toran and garland, mango leaves, arches, diyas, bells, jaali, kasavu, phulkari, alpana, brocade and paithani borders) are drawn procedurally in `scripts/render/motifs.js` and `scripts/render/card.js`. No third-party artwork or stock images are used.
-- **Music.** “Shehnai Dawn”, “Mehendi Bells” and “Royal Procession” are original compositions synthesised in the browser by `scripts/music.js`. You may use them in invitations made with this tool.
+- **Invitation templates and ornaments.** The 73 templates and every motif (lotus, paisley, mandala, marigold toran and garland, mango leaves, kalash, peacock feathers, kolam, palm fronds, roses, domes, lanterns, fairy lights, dharma chakra, fish, Warli figures, chinar leaves, gopuram, shankha, art-deco fans, agni kund, dhanush, mandap, bindi, arches, diyas, bells, jaali, kasavu, phulkari, alpana, madhubani, gamosa, pattachitra, bandhani, leheriya, ikat, brocade and paithani borders) are drawn procedurally in `scripts/render/motifs.js` and `scripts/render/card.js`. No third-party artwork or stock images are used.
+- **Music.** “Shehnai Dawn”, “Sitar Sandhya”, “Bansuri Breeze”, “Mehendi Bells”, “Dholki Nights”, “Royal Procession”, “Sufi Shaam”, “Piano Vows” and “Chapel Organ” are original compositions synthesised in the browser by `scripts/music.js`. You may use them in invitations made with this tool.
 - **Sample content.** All names, addresses and phone numbers are fictional.
 
 ## Third-party software (bundled in `vendor/`)
@@ -11,6 +11,10 @@
 | [jsPDF](https://github.com/parallax/jsPDF) | 2.5.2 | MIT (`vendor/LICENSE-jspdf.txt`) |
 | [JSZip](https://github.com/Stuk/jszip) | 3.10.1 | MIT or GPLv3, used under MIT (`vendor/LICENSE-jszip.md`) |
 | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | 1.4.4 | MIT, © Kazuhiko Arase |
+| [mp4-muxer](https://github.com/Vanilagy/mp4-muxer) | 5.1.3 | MIT (`vendor/LICENSE-mp4-muxer.txt`) |
+
+## Verses
+Ram Charit Manas (Goswami Tulsidas, 16th century), Rigveda mantras, Sanskrit shlokas, Pali and Jain prayers are traditional public-domain texts. Bible verses use the King James Version (public domain). The Quran 30:21 line is our own plain-language rendering of its meaning. Song titles in the “song ideas” list are given for reference only; no songs are included or downloaded.
 
 ## Fonts (bundled in `assets/fonts/`, via [Fontsource](https://fontsource.org))
 All under the SIL Open Font License 1.1. Licence texts are in `assets/fonts/LICENSE-*.txt`.

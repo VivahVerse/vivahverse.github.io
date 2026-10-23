@@ -6,7 +6,7 @@ An Indian wedding invitation maker that runs entirely in the browser. Pick an or
 - PNG and high-resolution JPEG images
 - a separate card for each function
 - Instagram sizes (9:16, 4:5, 1:1)
-- a music video invitation (MP4 or WebM)
+- a music video invitation (true MP4 via WebCodecs in Chrome/Edge/Safari; WebM fallback)
 - a self-hosted wedding website (.zip)
 
 There's no account, server or build step. It's plain HTML, CSS and JavaScript (ES modules), so it runs as-is on **GitHub Pages**.
@@ -78,8 +78,8 @@ scripts/
   i18n.js               Card labels, Indian date/time formatting (English & Hindi)
   render/card.js        Canvas renderer: layout engine with auto-fit text, frames, pages
   render/motifs.js      Original ornaments: lotus, paisley, mandala, marigold, toran, diya, arches…
-  data/templates.js     16 template definitions + palettes + fonts (data-driven)
-  data/culture.js       Traditions, invocations, function presets, wording presets
+  data/templates.js     73 template definitions + palettes + fonts (data-driven)
+  data/culture.js       22 traditions, 38 blessings/verses (incl. Ram Charit Manas & Vedic mantras), 45 function presets, wording
   exporter.js           PNG / JPEG / PDF / ZIP
   video.js              Animated timeline + MediaRecorder export
   music.js              Original synthesised tracks, audio decoding, WAV encoder
@@ -87,7 +87,7 @@ scripts/
   microsite.js          Wedding website generator
   storage.js            IndexedDB drafts & audio, localStorage prefs
   ui.js, config.js      Helpers & settings
-vendor/                 jsPDF 2.5.2, JSZip 3.10.1, qrcode-generator 1.4.4 (local copies + licences)
+vendor/                 jsPDF 2.5.2, JSZip 3.10.1, qrcode-generator 1.4.4, mp4-muxer 5.1.3 (local copies + licences)
 assets/fonts/           WOFF2 font files (SIL OFL)
 assets/og-image.png     Social preview image
 icons/                  Favicons & app icons
@@ -106,16 +106,18 @@ Append an object to `TEMPLATES` in `scripts/data/templates.js`. Choose a palette
 
 ### Implemented in this static version
 - Home page with an animated hero, card mock-ups and a phone video preview (motion is disabled when *reduce motion* is on)
-- Template gallery: 16 original templates, search, style chips, tradition / region / format / language filters, sorting, a preview modal and an empty state
-- 9-step wizard with a progress bar, Back/Next, validation, free navigation between steps and autosave
+- Template gallery: 73 original templates (60 suitable for Hindu weddings: traditional, devotional, folk-art, modern and trending) across Hindu (regional), Sikh, Muslim, Christian, Jain, Buddhist, Parsi and non-religious styles, with search, style chips, filters, sorting, "show more", a preview modal and an empty state
+- Simple 5-step editor (Choose design → Your details → Functions → Style & music → Download) with optional sections folded away, validation, free navigation and autosave
 - Couple and family details, all optional lines with show/hide, editable wording presets in English and Hindi
-- 11 tradition presets, 11 invocations (or your own), 24 function presets plus custom functions
+- 22 tradition presets, 31 blessings and verses (Ram Charit Manas chaupais with meanings, shlokas, Sikh, Muslim, Christian KJV, Jain, Buddhist, Parsi) or your own, 45 function presets plus custom functions
 - Functions: add, rename, edit, reorder, duplicate, delete, sort by date, timeline view, per-function photo, QR, message, dress code and an optional separate template
 - Editor: palettes, custom colours, fonts for names, headings, body and Devanagari, text, name and line-spacing sizes, weight, alignment, frames, ornament level, background pattern, element visibility, photo upload with zoom and position plus four frame shapes, undo/redo (buttons and <kbd>Ctrl/Cmd+Z</kbd>), reset styling, duplicate, start over, and Easy/Advanced modes
 - English, Hindi and bilingual cards with Hindi dates and times (“रात्रि 8:00 बजे”) and optional Devanagari numerals
 - Live preview drawn by the same renderer as the exports, with a warning when text has to be shortened to fit
 - Downloads: PNG, JPEG, single or multi-page PDF (5×7 / A5 / A4, bleed and crop marks), function cards ZIP, save-the-date, Instagram set, shown with file name, size and dimensions after each file is created
-- Video: 4 aspect ratios, short or extended length, 3 transitions, petals or sparkles, 3 original music tracks or your own upload, volume, start position, preview, export with progress and cancel
+- Video: 4 aspect ratios, short or extended length, 3 transitions, petals or sparkles, 9 original music tracks or your own song file, volume, start position, preview, true MP4 export (WebCodecs, faster than real time) with progress and cancel
+- Music links: paste a YouTube or Spotify link to play that song on the wedding website through the official embedded player, plus a list of popular wedding-song ideas
+- One-click downloads: Image (PNG/JPG), PDF, MP4, Website, or **Download everything** as one ZIP
 - Sharing: Web Share API (files) with a download fallback, an editable WhatsApp message, copy wording, a website link, QR codes (website, venue, functions, RSVP), a WhatsApp RSVP link and reply template, captions and hashtags
 - Wedding website: countdown, story, functions in order with directions and **Add to calendar (.ics)**, invitation image, gallery with lightbox, WhatsApp RSVP and blessings, optional music button, preview in a new tab or download as a ZIP with instructions
 - My Designs: list, open, rename, duplicate, delete, export and import backups (with photos and audio), reset all local data
@@ -131,12 +133,13 @@ Append an object to `TEMPLATES` in `scripts/data/templates.js`. Choose a palette
 | Machine translation | Needs a translation API, and you'd have to be told when text leaves the device. |
 | Guaranteed MP4 with AAC audio in every browser | Browser recorders differ. A server-side or WebCodecs encoder would be needed for Firefox. |
 | Licensed commercial music library | Needs licences. Only original synthesised tracks are bundled. |
+| Putting YouTube/Spotify audio inside the MP4 | Not allowed by those platforms' terms and usually copyrighted. Links are used only as embedded players on the website. |
 
 ## 5. Browser notes
 - PNG, JPEG, PDF, ZIP and the website export work in current Chrome, Edge, Firefox and Safari.
-- Video uses `MediaRecorder` and records in real time, so keep the tab visible. Chrome, Edge and Safari record MP4. Firefox records WebM. Some Chrome builds put Opus audio inside the MP4, which a few iPhones won't play. The studio tells you when this happens.
+- Video: Chrome, Edge and Safari encode a real MP4 with WebCodecs (H.264 + AAC where the platform supports AAC, otherwise Opus). Other browsers fall back to `MediaRecorder`, which records in real time (Firefox gives WebM). The studio tells you which audio codec was used.
 - Sharing files through the share sheet works on most phones and on Safari and Edge on desktop. Otherwise the file is downloaded and you attach it yourself. WhatsApp links can only carry text.
 - Drafts live in IndexedDB on one device. Private or incognito windows delete them when closed.
 
 ## 6. Licences
-Code: MIT (see `LICENSE`). Fonts: SIL Open Font License 1.1. Libraries: jsPDF (MIT), JSZip (MIT or GPLv3, used under MIT) and qrcode-generator (MIT). Templates, ornaments and music are original to this project. See `ATTRIBUTION.md`.
+Code: MIT (see `LICENSE`). Fonts: SIL Open Font License 1.1. Libraries: jsPDF (MIT), JSZip (MIT or GPLv3, used under MIT), qrcode-generator (MIT) and mp4-muxer (MIT). Templates, ornaments and music are original to this project. See `ATTRIBUTION.md`.
