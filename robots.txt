@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+# After deploying, uncomment and set your real address:
+# Sitemap: https://YOUR-USERNAME.github.io/YOUR-REPO/sitemap.xml

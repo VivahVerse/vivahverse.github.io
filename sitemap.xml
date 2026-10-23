@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Replace YOUR-USERNAME and YOUR-REPO with your GitHub Pages address after deploying. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://YOUR-USERNAME.github.io/YOUR-REPO/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://YOUR-USERNAME.github.io/YOUR-REPO/privacy.html</loc><priority>0.3</priority></url>
+  <url><loc>https://YOUR-USERNAME.github.io/YOUR-REPO/terms.html</loc><priority>0.3</priority></url>
+</urlset>
