@@ -312,8 +312,22 @@ function buildSaveDate(design, tpl) {
   return B;
 }
 
+// Opening scene for video invitations: the chosen chaupai / mantra, large.
+function buildVerse(design, tpl) {
+  const B = [];
+  const t = invocationText(design, 'hi') || invocationText(design, 'en') || '॥ शुभ विवाह ॥';
+  B.push(T(t, isDeva(t) ? 'deva' : 'display', t.length < 6 ? 14 : 4.6, { color: 'accent', gap: 2.4, lh: 1.6, prio: 0 }));
+  B.push({ k: 'divider', gap: 2, prio: 3 });
+  B.push(...multi(design, { en: 'Shubh Vivah', hi: '॥ शुभ विवाह ॥' }, 'display', 3.2, { color: 'ink2', upper: design.lang !== 'hi', ls: 0.2, gap: 1, prio: 2 }));
+  const c = design.couple;
+  const nm = textOf(design, { en: `${c.bride.en} & ${c.groom.en}`, hi: `${c.bride.hi || c.bride.en} & ${c.groom.hi || c.groom.en}` })[0];
+  if (nm) B.push(T(nm.t, nm.lang === 'hi' ? 'deva' : (tpl.names === 'script' ? 'script' : 'display'), 6, { color: 'ink', prio: 1 }));
+  return B;
+}
+
 export function buildBlocks(design, tpl, page) {
   switch (page.kind) {
+    case 'verse': return buildVerse(design, tpl);
     case 'events': return buildEvents(design, tpl, page);
     case 'event': return design.events[page.index] ? buildEvent(design, tpl, design.events[page.index]) : buildCover(design, tpl);
     case 'closing': return buildClosing(design, tpl);
@@ -394,6 +408,7 @@ export function layout(ctx, blocks, box, U, F, style) {
 }
 
 // ---------- background, frame, ornaments ----------
+const PATTERN2 = new Set(['bandhani', 'leheriya', 'ikat', 'confetti', 'henna', 'kolamDots', 'scales', 'roses']);
 function drawBackground(ctx, W, H, tpl, pal, design, U) {
   const bg = tpl.bg;
   if (bg.type === 'radial') {
@@ -427,9 +442,25 @@ function drawBackground(ctx, W, H, tpl, pal, design, U) {
     ctx.fillStyle = hexA(pal.bg2, 0.16); ctx.fill();
     ctx.restore();
   }
+  if (bg.type === 'sunburst') M.sunburst(ctx, W / 2, H * 0.42, Math.max(W, H) * 1.2, pal.bg2, 0.35, 48);
+  if (bg.type === 'split') {
+    const h = H * 0.36;
+    ctx.save(); ctx.fillStyle = pal.bg2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, h);
+    const n = 8; for (let i = n; i >= 0; i--) { const x = (i / n) * W; ctx.quadraticCurveTo(x + W / n / 2, h + U * 3, x, h); }
+    ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  if (bg.type === 'bands') {
+    ctx.save(); ctx.fillStyle = pal.bg2; ctx.fillRect(0, 0, W, H * 0.07); ctx.fillRect(0, H * 0.93, W, H * 0.07); ctx.restore();
+  }
+  if (bg.type === 'diagonal') {
+    const g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, pal.bg); g.addColorStop(1, pal.bg2);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
   if (design.style.pattern !== false && design.style.ornaments !== 'none' && bg.pattern) {
-    if (bg.pattern === 'mandala') M.mandala(ctx, W / 2, H / 2, Math.min(W, H) * 0.48, pal.accent, { alpha: bg.patternAlpha, rings: 6 });
-    else M.pattern(ctx, bg.pattern, W, H, pal.accent, bg.patternAlpha, U, tpl.id);
+    const pc = bg.patternColor ? (pal[bg.patternColor] || bg.patternColor) : pal.accent;
+    if (bg.pattern === 'mandala') M.mandala(ctx, W / 2, H / 2, Math.min(W, H) * 0.48, pc, { alpha: bg.patternAlpha, rings: 6 });
+    else if (PATTERN2.has(bg.pattern)) M.pattern2(ctx, bg.pattern, W, H, pc, bg.patternAlpha, U, tpl.id, pal);
+    else M.pattern(ctx, bg.pattern, W, H, pc, bg.patternAlpha, U, tpl.id);
   }
   // subtle paper grain
   const R = M.rng('grain' + tpl.id);
@@ -541,8 +572,66 @@ function drawFrame(ctx, W, H, tpl, pal, design, U) {
       content = { x: r.x + bw + U * 5, y: r.y + bw + U * 4, w: r.w - bw * 2 - U * 10, h: r.h - bw * 2 - U * 8 };
       break;
     }
+    case 'scallop': {
+      const d = U * 3;
+      ctx.lineWidth = Math.max(1, U * 0.2);
+      const edge = (x0, y0, x1, y1, nx, ny) => {
+        const len = Math.hypot(x1 - x0, y1 - y0), n = Math.round(len / d);
+        for (let i = 0; i < n; i++) {
+          const t = (i + 0.5) / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
+          const a = Math.atan2(ny, nx);
+          ctx.beginPath(); ctx.arc(x, y, len / n / 2, a - Math.PI / 2, a + Math.PI / 2); ctx.stroke();
+        }
+      };
+      edge(r.x, r.y, r.x + r.w, r.y, 0, -1); edge(r.x, r.y + r.h, r.x + r.w, r.y + r.h, 0, 1);
+      edge(r.x, r.y, r.x, r.y + r.h, -1, 0); edge(r.x + r.w, r.y, r.x + r.w, r.y + r.h, 1, 0);
+      ctx.lineWidth = Math.max(1, U * 0.12); ctx.strokeRect(r.x + U * 1.2, r.y + U * 1.2, r.w - U * 2.4, r.h - U * 2.4);
+      content = { x: r.x + U * 6, y: r.y + U * 6, w: r.w - U * 12, h: r.h - U * 12 };
+      break;
+    }
+    case 'corners': {
+      ctx.lineWidth = Math.max(1, U * 0.1); ctx.strokeRect(r.x + U, r.y + U, r.w - U * 2, r.h - U * 2);
+      ctx.lineWidth = Math.max(1, U * 0.3);
+      const L = U * 9;
+      [[r.x, r.y, 1, 1], [r.x + r.w, r.y, -1, 1], [r.x, r.y + r.h, 1, -1], [r.x + r.w, r.y + r.h, -1, -1]].forEach(([x, y, dx, dy]) => {
+        ctx.beginPath(); ctx.moveTo(x + dx * L, y); ctx.lineTo(x, y); ctx.lineTo(x, y + dy * L); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + dx * L * 0.6, y + dy * U * 2); ctx.lineTo(x + dx * U * 2, y + dy * U * 2); ctx.lineTo(x + dx * U * 2, y + dy * L * 0.6); ctx.stroke();
+        ctx.fillStyle = pal.accent; ctx.beginPath(); ctx.arc(x + dx * U * 3.5, y + dy * U * 3.5, U * 0.6, 0, Math.PI * 2); ctx.fill();
+      });
+      break;
+    }
+    case 'rounded': {
+      ctx.lineWidth = Math.max(1, U * 0.3); ctx.beginPath(); roundRect(ctx, r.x, r.y, r.w, r.h, U * 6); ctx.stroke();
+      ctx.lineWidth = Math.max(1, U * 0.1); ctx.beginPath(); roundRect(ctx, r.x + U * 1.3, r.y + U * 1.3, r.w - U * 2.6, r.h - U * 2.6, U * 5); ctx.stroke();
+      break;
+    }
+    case 'dotted': {
+      ctx.fillStyle = pal.accent; const step = U * 1.6;
+      for (let x = r.x; x <= r.x + r.w + 0.1; x += step) { ctx.beginPath(); ctx.arc(x, r.y, U * 0.35, 0, Math.PI * 2); ctx.arc(x, r.y + r.h, U * 0.35, 0, Math.PI * 2); ctx.fill(); }
+      for (let y = r.y; y <= r.y + r.h + 0.1; y += step) { ctx.beginPath(); ctx.arc(r.x, y, U * 0.35, 0, Math.PI * 2); ctx.arc(r.x + r.w, y, U * 0.35, 0, Math.PI * 2); ctx.fill(); }
+      ctx.lineWidth = Math.max(1, U * 0.12); ctx.strokeRect(r.x + U * 1.5, r.y + U * 1.5, r.w - U * 3, r.h - U * 3);
+      break;
+    }
+    case 'deco': {
+      ctx.lineWidth = Math.max(1, U * 0.22);
+      const c = U * 4;
+      const notch = (o, k) => { ctx.beginPath();
+        ctx.moveTo(r.x + o + c * k, r.y + o); ctx.lineTo(r.x + r.w - o - c * k, r.y + o); ctx.lineTo(r.x + r.w - o, r.y + o + c * k);
+        ctx.lineTo(r.x + r.w - o, r.y + r.h - o - c * k); ctx.lineTo(r.x + r.w - o - c * k, r.y + r.h - o); ctx.lineTo(r.x + o + c * k, r.y + r.h - o);
+        ctx.lineTo(r.x + o, r.y + r.h - o - c * k); ctx.lineTo(r.x + o, r.y + o + c * k); ctx.closePath(); ctx.stroke(); };
+      notch(0, 1); ctx.lineWidth = Math.max(1, U * 0.1); notch(U * 1.4, 0.7);
+      [[r.x + r.w / 2, r.y], [r.x + r.w / 2, r.y + r.h]].forEach(([x, y]) => { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillStyle = pal.bg; ctx.fillRect(-U, -U, U * 2, U * 2); ctx.strokeRect(-U, -U, U * 2, U * 2); ctx.restore(); });
+      break;
+    }
     default:
-      ctx.strokeRect(r.x, r.y, r.w, r.h);
+      if (String(type).startsWith('b2-')) {
+        const bt = type.slice(3), bh = U * 4;
+        M.band2(ctx, bt, r.x, r.x + r.w, r.y + bh / 2, bh, pal);
+        M.band2(ctx, bt, r.x, r.x + r.w, r.y + r.h - bh / 2, bh, pal);
+        ctx.lineWidth = Math.max(1, U * 0.15); ctx.strokeStyle = pal.accent;
+        ctx.beginPath(); ctx.moveTo(r.x, r.y + bh); ctx.lineTo(r.x, r.y + r.h - bh); ctx.moveTo(r.x + r.w, r.y + bh); ctx.lineTo(r.x + r.w, r.y + r.h - bh); ctx.stroke();
+        content = { x: r.x + U * 6, y: r.y + bh + U * 3.5, w: r.w - U * 12, h: r.h - bh * 2 - U * 7 };
+      } else ctx.strokeRect(r.x, r.y, r.w, r.h);
   }
   ctx.restore();
   return content;
@@ -587,6 +676,7 @@ function drawOrnaments(ctx, W, H, tpl, pal, design, U, box, page, alpha) {
       if (tpl.corners === 'floral') M.floralCorner(ctx, x, y, cs, rot, pal);
       else if (tpl.corners === 'paisley') M.paisley(ctx, x + Math.cos(rot + Math.PI / 4) * U * 4, y + Math.sin(rot + Math.PI / 4) * U * 4, U * 3.2, rot + Math.PI * 0.75, null, pal.accent);
       else if (tpl.corners === 'star') M.star8(ctx, x + Math.cos(rot + Math.PI / 4) * U * 2.5, y + Math.sin(rot + Math.PI / 4) * U * 2.5, U * 1.8, null, pal.accent);
+      else if (CORNERS[tpl.corners]) CORNERS[tpl.corners](ctx, x, y, rot, U, pal);
     });
   }
 
@@ -670,6 +760,8 @@ function drawOrnaments(ctx, W, H, tpl, pal, design, U, box, page, alpha) {
       case 'alpanaMotif': {
         drawAlpanaMotif(ctx, cx, box.y + 4 * s, 4 * s, pal); top = 9 * s; break;
       }
+      default:
+        if (TOPS[T0]) top = TOPS[T0](ctx, { cx, box, s, U, pal, landscape, tpl, design });
     }
   }
   if (!minimal) {
@@ -706,6 +798,8 @@ function drawOrnaments(ctx, W, H, tpl, pal, design, U, box, page, alpha) {
         bottom = 9 * s; break;
       }
       case 'alpanaMotif': drawAlpanaMotif(ctx, cx, by - 4 * s, 4 * s, pal); bottom = 9 * s; break;
+      default:
+        if (BOTTOMS[B0]) bottom = BOTTOMS[B0](ctx, { cx, by, box, s, U, pal, landscape, tpl, design });
     }
   }
   ctx.restore();
@@ -726,6 +820,90 @@ function drawAlpanaMotif(ctx, x, y, r, pal) {
   [-1.9, 1.9].forEach(dx => { ctx.beginPath(); ctx.arc(dx * r, 0, r * 0.1, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(dx * r * 1.3, 0, r * 0.07, 0, Math.PI * 2); ctx.fill(); });
   ctx.restore();
 }
+
+
+// ---------- ornament registries (v2) ----------
+const TOPS = {
+  agni: (ctx, o) => { M.agniKund(ctx, o.cx, o.box.y + 12 * o.s, 9 * o.s, o.pal); return 13 * o.s; },
+  dhanush: (ctx, o) => { M.dhanush(ctx, o.cx, o.box.y + 8 * o.s, 10 * o.s, o.pal); return 15 * o.s; },
+  mandap: (ctx, o) => { const w = Math.min(o.box.w * 0.8, 56 * o.s); M.mandapStructure(ctx, o.cx, o.box.y + 1.5 * o.s, w, 21 * o.s, o.pal, o.tpl.id); return 21 * o.s; },
+  bindi: (ctx, o) => { M.bindi(ctx, o.cx, o.box.y + 5 * o.s, 3.5 * o.s, o.pal); return 11 * o.s; },
+  om: (ctx, o) => {
+    const F = fontsFor(o.design, o.tpl);
+    ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `400 ${Math.round(11 * o.s)}px "${F.deva}", "Tiro Devanagari Hindi", serif`;
+    ctx.fillStyle = M.foil(ctx, o.cx - 6 * o.s, 0, o.cx + 6 * o.s, 0, o.pal.accent, o.pal.accent2 || o.pal.accent);
+    ctx.fillText('ॐ', o.cx, o.box.y + 6 * o.s); ctx.restore();
+    M.divider(ctx, 'dots', o.cx, o.box.y + 12.5 * o.s, Math.min(o.box.w * 0.4, 34 * o.s), o.pal.accent);
+    return 14 * o.s;
+  },
+  kalash: (ctx, o) => { M.kalash(ctx, o.cx, o.box.y + 13.5 * o.s, 13 * o.s, o.pal); return 15 * o.s; },
+  peacock: (ctx, o) => { [-0.45, 0.45].forEach(r => M.peacockFeather(ctx, o.cx, o.box.y + 12 * o.s, 13 * o.s, r, o.pal)); return 11.5 * o.s; },
+  kolam: (ctx, o) => { M.kolam(ctx, o.cx, o.box.y + 6 * o.s, 6 * o.s, o.pal.accent); return 13.5 * o.s; },
+  roses: (ctx, o) => {
+    const { cx, box, s, pal } = o;
+    M.rose(ctx, cx - 5 * s, box.y + 4.2 * s, 2.4 * s, pal.flower || pal.accent2, pal.accent2 || pal.accent, pal.leaf);
+    M.rose(ctx, cx + 5 * s, box.y + 4.2 * s, 2.4 * s, pal.flower || pal.accent2, pal.accent2 || pal.accent, pal.leaf);
+    M.rose(ctx, cx, box.y + 3.6 * s, 3.2 * s, pal.flower || pal.accent2, pal.accent2 || pal.accent, pal.leaf);
+    return 9 * s;
+  },
+  cross: (ctx, o) => {
+    const { cx, box, s, pal } = o;
+    M.cross(ctx, cx, box.y + 5 * s, 8 * s, pal.accent);
+    [-1, 1].forEach(d => { for (let i = 0; i < 4; i++) M.leaf(ctx, cx + d * (2.5 + i * 1.6) * s, box.y + (7.5 - i * 0.9) * s, 1.8 * s, d * (2.2 - i * 0.15), pal.leaf || pal.accent, null); });
+    return 11 * s;
+  },
+  domes: (ctx, o) => { const w = Math.min(o.box.w * 0.75, 50 * o.s); M.domes(ctx, o.cx - w / 2, o.cx + w / 2, o.box.y + 12 * o.s, 12 * o.s, o.pal.accent); M.crescent(ctx, o.cx + 0.5 * o.s, o.box.y + 0.2 * o.s, 1.2 * o.s, o.pal.accent); return 13 * o.s; },
+  gurdwara: (ctx, o) => { const w = Math.min(o.box.w * 0.6, 40 * o.s); M.domes(ctx, o.cx - w / 2, o.cx + w / 2, o.box.y + 13 * o.s, 13 * o.s, o.pal.accent, 'single'); return 14 * o.s; },
+  fanoos: (ctx, o) => {
+    const { box, s, U, pal, landscape } = o;
+    const n = landscape ? 5 : 3;
+    for (let i = 0; i < n; i++) {
+      const x = box.x + (i + 0.5) * box.w / n, drop = (i % 2 ? 1.5 : 4) * s;
+      ctx.strokeStyle = pal.accent; ctx.lineWidth = Math.max(1, U * 0.1);
+      ctx.beginPath(); ctx.moveTo(x, box.y - U * 5); ctx.lineTo(x, box.y + drop); ctx.stroke();
+      M.fanoos(ctx, x, box.y + drop, 4.5 * s, pal);
+    }
+    return 9.5 * s;
+  },
+  lights: (ctx, o) => { M.fairyLights(ctx, o.box.x - o.U * 5, o.box.x + o.box.w + o.U * 5, o.box.y - o.U * 3, 5 * o.s, o.landscape ? 24 : 16, o.pal, o.tpl.id); return 5 * o.s; },
+  wheel: (ctx, o) => { M.wheel(ctx, o.cx, o.box.y + 6.5 * o.s, 5.5 * o.s, o.pal.accent); return 14 * o.s; },
+  fish: (ctx, o) => { M.fishPair(ctx, o.cx, o.box.y + 3.5 * o.s, 6 * o.s, o.pal.accent, o.pal.bg); return 8 * o.s; },
+  warli: (ctx, o) => { M.warliCircle(ctx, o.cx, o.box.y + 7.5 * o.s, 6 * o.s, 3.2 * o.s, 11, o.pal.accent); return 16.5 * o.s; },
+  chinar: (ctx, o) => {
+    const { cx, box, s, pal } = o;
+    M.chinar(ctx, cx - 4.5 * s, box.y + 5 * s, 6 * s, -0.5, pal.accent2 || pal.accent, pal.bg);
+    M.chinar(ctx, cx + 4.5 * s, box.y + 5 * s, 6 * s, 0.5, pal.accent2 || pal.accent, pal.bg);
+    M.chinar(ctx, cx, box.y + 4 * s, 7.5 * s, 0, pal.accent, pal.bg);
+    return 10 * s;
+  },
+  gopuram: (ctx, o) => { M.gopuram(ctx, o.cx, o.box.y + 14 * o.s, 13 * o.s, 14 * o.s, o.pal); return 15.5 * o.s; },
+  shankha: (ctx, o) => { M.shankha(ctx, o.cx, o.box.y + 4.5 * o.s, 13 * o.s, 0, '#fffaf2', o.pal.accent); [-1, 1].forEach(d => { ctx.fillStyle = o.pal.accent; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(o.cx + d * (9 + k * 1.6) * o.s, o.box.y + 4.5 * o.s, (0.7 - k * 0.15) * o.s, 0, Math.PI * 2); ctx.fill(); } }); return 10 * o.s; },
+  deco: (ctx, o) => { M.decoFan(ctx, o.cx, o.box.y + 8 * o.s, 7.5 * o.s, o.pal.accent); return 10 * o.s; },
+};
+const BOTTOMS = {
+  agni: (ctx, o) => { M.agniKund(ctx, o.cx, o.by, 6.5 * o.s, o.pal); return 9 * o.s; },
+  diyas7: (ctx, o) => { const n = 7; for (let i = 0; i < n; i++) M.diya(ctx, o.box.x + (i + 0.5) * o.box.w / n, o.by - 1.5 * o.s, 2.3 * o.s, o.pal); return 5.5 * o.s; },
+  bindi: (ctx, o) => { M.bindi(ctx, o.cx, o.by - 3 * o.s, 2.2 * o.s, o.pal); return 7 * o.s; },
+  roses: (ctx, o) => { const { cx, by, s, pal } = o; [-6, 6, 0].forEach((dx, i) => M.rose(ctx, cx + dx * s, by - (i === 2 ? 3.4 : 2.8) * s, (i === 2 ? 3 : 2.2) * s, pal.flower || pal.accent2, pal.accent2 || pal.accent, pal.leaf)); return 7 * s; },
+  kolam: (ctx, o) => { M.kolam(ctx, o.cx, o.by - 5 * o.s, 5 * o.s, o.pal.accent); return 11 * o.s; },
+  fish: (ctx, o) => { M.fishPair(ctx, o.cx, o.by - 3 * o.s, 5.5 * o.s, o.pal.accent, o.pal.bg); return 6.5 * o.s; },
+  warli: (ctx, o) => { M.warliRow(ctx, o.box.x, o.box.x + o.box.w, o.by, 5.5 * o.s, o.pal.accent); return 6.5 * o.s; },
+  domes: (ctx, o) => { ctx.save(); ctx.globalAlpha *= 0.85; M.domes(ctx, o.box.x + o.box.w * 0.1, o.box.x + o.box.w * 0.9, o.by + o.U * 1, 11 * o.s, o.pal.accent); ctx.restore(); return 10 * o.s; },
+  kalash: (ctx, o) => { M.kalash(ctx, o.cx, o.by, 8 * o.s, o.pal); return 9.5 * o.s; },
+  chinar: (ctx, o) => { [-7, 0, 7].forEach((dx, i) => M.chinar(ctx, o.cx + dx * o.s, o.by - 3 * o.s, (i === 1 ? 5.5 : 4) * o.s, dx * 0.08 + Math.PI, i === 1 ? o.pal.accent : (o.pal.accent2 || o.pal.accent), o.pal.bg)); return 7 * o.s; },
+  wheel: (ctx, o) => { M.wheel(ctx, o.cx, o.by - 3.5 * o.s, 3 * o.s, o.pal.accent); return 8 * o.s; },
+  lotusRow: (ctx, o) => { for (let i = -2; i <= 2; i++) M.lotus(ctx, o.cx + i * 7 * o.s, o.by - 0.5 * o.s, (i ? 3 : 4.5) * o.s, o.pal.flower || null, o.pal.accent, { base: false }); return 6 * o.s; },
+};
+const CORNERS = {
+  fronds: (ctx, x, y, rot, U, pal) => { [-0.35, 0, 0.35].forEach((d, i) => M.frond(ctx, x, y, U * (i === 1 ? 20 : 15), Math.PI * 0.75 + rot + d, pal.leaf || pal.accent)); },
+  roses: (ctx, x, y, rot, U, pal) => { const dx = Math.cos(rot + Math.PI / 4), dy = Math.sin(rot + Math.PI / 4); M.rose(ctx, x + dx * U * 6, y + dy * U * 6, U * 3, pal.flower || pal.accent2, pal.accent2 || pal.accent, pal.leaf); M.rose(ctx, x + dx * U * 6 + Math.cos(rot) * U * 5.5, y + dy * U * 6 + Math.sin(rot) * U * 5.5, U * 1.8, pal.flower || pal.accent2, pal.accent2 || pal.accent, null); M.rose(ctx, x + dx * U * 6 + Math.cos(rot + Math.PI / 2) * U * 5.5, y + dy * U * 6 + Math.sin(rot + Math.PI / 2) * U * 5.5, U * 1.8, pal.flower || pal.accent2, pal.accent2 || pal.accent, null); },
+  chinar: (ctx, x, y, rot, U, pal) => { const dx = Math.cos(rot + Math.PI / 4), dy = Math.sin(rot + Math.PI / 4); M.chinar(ctx, x + dx * U * 6, y + dy * U * 6, U * 7, rot + Math.PI * 0.75, pal.accent2 || pal.accent, pal.bg); },
+  peacock: (ctx, x, y, rot, U, pal) => { M.peacockFeather(ctx, x, y, U * 20, Math.PI * 0.75 + rot, pal); },
+  deco: (ctx, x, y, rot, U, pal) => { ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.strokeStyle = pal.accent; ctx.lineWidth = Math.max(1, U * 0.15); for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(0, 0, U * (3 + i * 2.2), 0, Math.PI / 2); ctx.stroke(); } ctx.restore(); },
+  kalka: (ctx, x, y, rot, U, pal) => { const dx = Math.cos(rot + Math.PI / 4), dy = Math.sin(rot + Math.PI / 4); M.paisley(ctx, x + dx * U * 5, y + dy * U * 5, U * 4.2, rot + Math.PI * 0.75, M.foil(ctx, x - U * 4, y, x + U * 4, y, pal.accent, pal.accent2 || pal.accent), pal.accent2 || pal.accent); },
+  lotus: (ctx, x, y, rot, U, pal) => { const dx = Math.cos(rot + Math.PI / 4), dy = Math.sin(rot + Math.PI / 4); ctx.save(); ctx.translate(x + dx * U * 5, y + dy * U * 5); ctx.rotate(rot + Math.PI * 0.75); M.lotus(ctx, 0, U * 2, U * 4, pal.flower || null, pal.accent, { base: false }); ctx.restore(); },
+};
 
 // ---------- photo + QR ----------
 export function drawPhoto(ctx, img, photo, x, y, w, h, shape, pal, U) {
