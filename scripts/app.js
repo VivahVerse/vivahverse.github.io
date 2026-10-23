@@ -8,6 +8,9 @@ import { $, $$, esc, icon, toast, openModal, closeModal, confirmDialog, promptDi
 import { storage, prefs } from './storage.js';
 import { openStudio, leaveStudio, exportBackup, migrate } from './studio.js';
 import { CONFIG } from './config.js';
+import { renderReelGallery, openReelEditor, leaveReelEditor, newStoryDesign } from './reels.js';
+import { renderAccount, initAccount } from './profile.js';
+import { StoryTimeline, ensureStoryFonts, STORY_MAP } from './render/story.js';
 
 // ---------- theme ----------
 const root = document.documentElement;
@@ -43,11 +46,12 @@ function parseHash() {
 }
 async function route() {
   const { view, params, anchor } = parseHash();
-  const target = ['studio', 'designs'].includes(view) ? view : 'home';
+  const target = ['studio', 'designs', 'reels', 'reel', 'account'].includes(view) ? view : 'home';
   if (currentView === 'studio' && target !== 'studio') leaveStudio();
+  if (currentView === 'reel' && target !== 'reel') leaveReelEditor();
   $$('.view').forEach(v => (v.hidden = v.id !== `view-${target}`));
   $$('[data-nav]').forEach(a => a.removeAttribute('aria-current'));
-  const navKey = target === 'home' ? (['templates', 'video', 'website', 'help'].includes(anchor) ? anchor : 'home') : target;
+  const navKey = target === 'home' ? (['templates', 'video', 'website', 'help'].includes(anchor) ? anchor : 'home') : target === 'reel' ? 'reels' : target;
   $(`[data-nav="${navKey}"]`)?.setAttribute('aria-current', 'page');
   const changed = currentView !== target;
   currentView = target;
@@ -56,12 +60,25 @@ async function route() {
     if (anchor && anchor !== 'home') requestAnimationFrame(() => document.getElementById(anchor)?.scrollIntoView({ behavior: changed || reducedMotion() ? 'auto' : 'smooth' }));
     else if (changed) window.scrollTo(0, 0);
     document.title = 'Shubh Vivah Studio — Indian Wedding Invitation Maker';
+  } else if (target === 'reels') {
+    window.scrollTo(0, 0);
+    document.title = 'Viral Reel Invitations — Shubh Vivah Studio';
+    renderReelGallery(params);
+  } else if (target === 'reel') {
+    window.scrollTo(0, 0);
+    document.title = 'Reel Editor — Shubh Vivah Studio';
+    await openReelEditor(params);
+  } else if (target === 'account') {
+    window.scrollTo(0, 0);
+    document.title = 'My Account — Shubh Vivah Studio';
+    initAccount(); renderAccount(params);
   } else if (target === 'studio') {
+    if (params.id) { const x = await storage.getDesign(params.id); if (x?.kind === 'story') { location.replace(`#/reel?id=${params.id}`); return; } }
     window.scrollTo(0, 0);
     document.title = 'Create Invitation — Shubh Vivah Studio';
     await openStudio(params);
     // clean one-shot params so refresh doesn't create another new design
-    if (params.new || params.template) history.replaceState(null, '', '#/studio');
+    if (params.new || params.template || params.profile) history.replaceState(null, '', '#/studio');
   } else if (target === 'designs') {
     window.scrollTo(0, 0);
     document.title = 'My Designs — Shubh Vivah Studio';
@@ -92,6 +109,9 @@ function initHome() {
   Promise.all([ensureFonts(v), ensureFonts(v2)]).then(() => { phoneLoop($('#hero-phone'), v); phoneLoop($('#video-phone'), v2); });
   buildFilters();
   renderGallery();
+  // viral reel phone: paint lazily when it scrolls into view
+  const rp = $('#reel-phone');
+  if (rp) { const io = new IntersectionObserver(es => { if (!es[0].isIntersecting) return; io.disconnect(); const sd = newStoryDesign('divine-union', null, { sample: true }); ensureStoryFonts(sd).then(() => setTimeout(() => phoneLoop(rp, sd), 50)); }, { rootMargin: '200px' }); io.observe(rp); }
 }
 
 function phoneLoop(canvas, design) {
@@ -231,19 +251,25 @@ async function renderDesigns() {
   const list = await storage.listDesigns();
   const grid = $('#designs-grid');
   $('#designs-empty').hidden = list.length > 0;
-  grid.innerHTML = list.map(d => `<article class="d-card" data-id="${d.id}">
-    <canvas width="300" height="420" role="img" aria-label="${esc(d.name)} cover preview"></canvas>
-    <div class="d-meta"><h3>${esc(d.name)}</h3><small>${esc(TEMPLATE_MAP[d.templateId]?.name || '')} · ${esc(d.couple?.bride?.en || '')} &amp; ${esc(d.couple?.groom?.en || '')}</small><small>Edited ${new Date(d.updatedAt).toLocaleString()}</small></div>
+  grid.innerHTML = list.map(d => `<article class="d-card ${d.kind === 'story' ? 'is-reel' : ''}" data-id="${d.id}">
+    <canvas width="${d.kind === 'story' ? 236 : 300}" height="420" role="img" aria-label="${esc(d.name)} cover preview"></canvas>
+    <div class="d-meta"><h3>${esc(d.name)}</h3><small>${d.kind === 'story' ? `Reel · ${esc(STORY_MAP[d.story?.template]?.name || '')}` : esc(TEMPLATE_MAP[d.templateId]?.name || '')} · ${esc(d.couple?.bride?.en || '')} &amp; ${esc(d.couple?.groom?.en || '')}</small><small>Edited ${new Date(d.updatedAt).toLocaleString()}</small></div>
     <div class="d-actions">
-      <a class="btn btn-maroon" href="#/studio?id=${d.id}">${icon('edit')}Open</a>
+      <a class="btn btn-maroon" href="${d.kind === 'story' ? '#/reel' : '#/studio'}?id=${d.id}">${icon('edit')}Open</a>
       <button class="btn btn-text" type="button" data-d="rename">Rename</button>
       <button class="btn btn-text" type="button" data-d="dup">Duplicate</button>
       <button class="btn btn-text" type="button" data-d="backup">Backup</button>
       <button class="btn btn-text danger" type="button" data-d="del">Delete</button>
     </div></article>`).join('');
-  $$('.d-card', grid).forEach(card => {
-    const d = migrate(list.find(x => x.id === card.dataset.id));
+  $$('.d-card', grid).forEach((card, i) => {
+    const raw = list.find(x => x.id === card.dataset.id);
     const c = card.querySelector('canvas');
+    if (raw.kind === 'story') {
+      const d = { ...newStoryDesign(raw.story?.template, null, { sample: true }), ...raw };
+      ensureStoryFonts(d).then(() => setTimeout(() => { const tl = new StoryTimeline(d, c.width, c.height); const sc = tl.scenes.find(s => s.kind === 'invite'); tl.draw(c.getContext('2d'), sc.start + sc.dur * 0.8); }, 60 * i));
+      return;
+    }
+    const d = migrate(raw);
     ensureFonts(d).then(() => renderPage(c.getContext('2d'), 300, 420, d, { kind: 'cover' }));
   });
 }

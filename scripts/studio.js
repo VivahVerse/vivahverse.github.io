@@ -13,6 +13,7 @@ import { invitationText, waLink, rsvpMessage, hashtags, captions, shareFile, sha
 import { buildMicrosite } from './microsite.js';
 import { REEL_THEMES, REEL_MAP, ReelTimeline } from './render/reel.js';
 import { CONFIG } from './config.js';
+import { accountBar, handleAccountClick, profiles, applyProfile } from './profile.js';
 
 const idle = fn => (window.requestIdleCallback ? requestIdleCallback(() => fn(), { timeout: 200 }) : setTimeout(fn, 1));
 const STEPS = [
@@ -328,6 +329,7 @@ P[7] = () => {
   return `
   <h2>Music &amp; video</h2>
   <p class="lead">Turn your cards into an animated invitation. Press <strong>Play preview</strong> to watch it in the preview area.</p>
+  <p class="note">${icon('sparkle')}<span>Want a hand-painted watercolour story like the viral Instagram invitations? Try <a href="#/reels">Viral Reels</a> (Shiv–Parvati, Radha–Krishna, Sita–Ram and more).</span></p>
   ${reelPicker(d)}
   <fieldset class="fieldset"><legend>Video style</legend>
     <div class="radio-cards">${VIDEO_STYLES.map(([id, t, sub]) => `<label class="radio-card"><input type="radio" name="vstyle" value="${id}" data-vstyle="${id}" ${(v.style || 'traditional') === id ? 'checked' : ''}><strong>${t}</strong><small>${sub}</small></label>`).join('')}</div>
@@ -491,6 +493,7 @@ R[2] = () => {
   return `
   <h2>Your details</h2>
   <p class="lead">Only the names and the date are required. Everything else is optional and already filled with editable suggestions.</p>
+  ${accountBar()}
   ${names}${date}
   ${fold('Blessing, mantra or verse', invocation, HINDU_TRADS.includes(d.culture) || d.culture === 'hindu-ram', `${INVOCATIONS.length - 2} options: Ram Charit Manas, Ramayan, Vedic mantras, Shiv, Krishna, Ganesh & more`)}
   ${fold('Couple photo', photo, false, 'optional')}
@@ -891,6 +894,12 @@ function rangeFmt(path, v) {
 }
 
 async function onClick(e) {
+  const accBtn = e.target.closest('[data-acc]');
+  if (accBtn) {
+    const r = await handleAccountClick(accBtn, () => D(), fn => { store.update(x => fn(x)); renderPanel({ keepScroll: true }); schedulePreview(); });
+    if (r === 'saved') renderPanel({ keepScroll: true });
+    return;
+  }
   const t = e.target.closest('button, a, [data-tpl]');
   if (!t) return;
   const act = t.dataset.act;
@@ -1347,6 +1356,8 @@ export async function openStudio(params = {}) {
     if (!d || params.new) {
       const tid = TEMPLATE_MAP[params.template] ? params.template : 'rajmahal';
       d = defaultDesign(tid, cultureForTemplate(tid));
+      const pf = params.profile ? profiles.get(params.profile) : (profiles.autofill() ? profiles.active() : null);
+      if (pf) { applyProfile(d, pf, { events: pf.events.length > 0 }); setTimeout(() => toast(`Filled with your saved details (“${pf.label}”).`, 'ok'), 400); }
     }
   }
   if (params.template && !params.new && d) { d.templateId = params.template; }

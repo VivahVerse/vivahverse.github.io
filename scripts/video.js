@@ -6,13 +6,15 @@ import { FORMATS } from './state.js';
 import { rng } from './render/motifs.js';
 import { renderTrack, decodeFile, audioCtx } from './music.js';
 import { ReelTimeline } from './render/reel.js';
-export const makeTimeline = (design, W, H) => (design.video.reel && design.video.reel !== 'cards' ? new ReelTimeline(design, W, H) : new Timeline(design, W, H));
+import { StoryTimeline, ensureStoryFonts } from './render/story.js';
+export const makeTimeline = (design, W, H) => design.kind === 'story' ? new StoryTimeline(design, W, H) : (design.video.reel && design.video.reel !== 'cards' ? new ReelTimeline(design, W, H) : new Timeline(design, W, H));
 
 export const VIDEO_FORMATS = {
   story: { label: '9:16 · WhatsApp Status / Reels', w: 1080, h: 1920 },
   portrait: { label: '4:5 · Instagram post', w: 1080, h: 1350 },
   square: { label: '1:1 · Square post', w: 1080, h: 1080 },
   wide: { label: '16:9 · Widescreen / YouTube', w: 1920, h: 1080 },
+  story4k: { label: '9:16 · 4K (2160×3840)', w: 2160, h: 3840 },
 };
 
 export function buildScenes(design) {
@@ -154,6 +156,7 @@ export async function recordVideo(design, { audio, onProgress, signal }) {
   const sup = videoSupport();
   if (!sup.recorder || !sup.capture || !sup.mime) throw new Error('Your browser cannot record video. Please try a recent version of Chrome, Edge, Safari or Firefox on a computer or Android phone.');
   await ensureFonts(design); await preloadImages(design);
+  if (design.kind === 'story') await ensureStoryFonts(design);
   const W = fmt.w, H = fmt.h;
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
@@ -209,9 +212,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function pickVideoCodec(W, H) {
   if (!window.VideoEncoder) return null;
-  for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.640033', 'avc1.42001f']) {
+  const big = W * H > 2_100_000;
+  const list = big ? ['avc1.640033', 'avc1.4d0033', 'avc1.640034'] : ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.640033', 'avc1.42001f'];
+  for (const codec of list) {
     try {
-      const cfg = { codec, width: W, height: H, bitrate: 6_000_000, framerate: 30 };
+      const cfg = { codec, width: W, height: H, bitrate: big ? 24_000_000 : 8_000_000, framerate: 30 };
       const r = await VideoEncoder.isConfigSupported(cfg);
       if (r.supported) return cfg;
     } catch { }
@@ -260,6 +265,7 @@ export async function encodeMP4(design, { audio, onProgress, signal }) {
   const acodec = audio ? await pickAudioCodec() : null;
   const Mux = await loadScript('vendor/mp4-muxer.js', 'Mp4Muxer');
   await ensureFonts(design); await preloadImages(design);
+  if (design.kind === 'story') await ensureStoryFonts(design);
   const W = fmt.w, H = fmt.h, FPS = 30;
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
