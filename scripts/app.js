@@ -8,9 +8,11 @@ import { $, $$, esc, icon, toast, openModal, closeModal, confirmDialog, promptDi
 import { storage, prefs } from './storage.js';
 import { openStudio, leaveStudio, exportBackup, migrate } from './studio.js';
 import { CONFIG } from './config.js';
-import { renderReelGallery, openReelEditor, leaveReelEditor, newStoryDesign } from './reels.js';
+import { renderReelGallery, openReelEditor, leaveReelEditor, newStoryDesign, readyTimeline } from './reels.js';
 import { renderAccount, initAccount } from './profile.js';
-import { StoryTimeline, ensureStoryFonts, STORY_MAP } from './render/story.js';
+import { ensureStoryFonts, STORY_MAP } from './render/story.js';
+import { ART_MAP } from './render/artreel.js';
+import { initFx } from './fx.js';
 
 // ---------- theme ----------
 const root = document.documentElement;
@@ -253,7 +255,7 @@ async function renderDesigns() {
   $('#designs-empty').hidden = list.length > 0;
   grid.innerHTML = list.map(d => `<article class="d-card ${d.kind === 'story' ? 'is-reel' : ''}" data-id="${d.id}">
     <canvas width="${d.kind === 'story' ? 236 : 300}" height="420" role="img" aria-label="${esc(d.name)} cover preview"></canvas>
-    <div class="d-meta"><h3>${esc(d.name)}</h3><small>${d.kind === 'story' ? `Reel · ${esc(STORY_MAP[d.story?.template]?.name || '')}` : esc(TEMPLATE_MAP[d.templateId]?.name || '')} · ${esc(d.couple?.bride?.en || '')} &amp; ${esc(d.couple?.groom?.en || '')}</small><small>Edited ${new Date(d.updatedAt).toLocaleString()}</small></div>
+    <div class="d-meta"><h3>${esc(d.name)}</h3><small>${d.kind === 'story' ? `Reel · ${esc((STORY_MAP[d.story?.template] || ART_MAP[d.story?.template])?.name || '')}` : esc(TEMPLATE_MAP[d.templateId]?.name || '')} · ${esc(d.couple?.bride?.en || '')} &amp; ${esc(d.couple?.groom?.en || '')}</small><small>Edited ${new Date(d.updatedAt).toLocaleString()}</small></div>
     <div class="d-actions">
       <a class="btn btn-maroon" href="${d.kind === 'story' ? '#/reel' : '#/studio'}?id=${d.id}">${icon('edit')}Open</a>
       <button class="btn btn-text" type="button" data-d="rename">Rename</button>
@@ -266,7 +268,7 @@ async function renderDesigns() {
     const c = card.querySelector('canvas');
     if (raw.kind === 'story') {
       const d = { ...newStoryDesign(raw.story?.template, null, { sample: true }), ...raw };
-      ensureStoryFonts(d).then(() => setTimeout(() => { const tl = new StoryTimeline(d, c.width, c.height); const sc = tl.scenes.find(s => s.kind === 'invite'); tl.draw(c.getContext('2d'), sc.start + sc.dur * 0.8); }, 60 * i));
+      setTimeout(async () => { const tl = await readyTimeline(d, c.width, c.height); const sc = tl.scenes[Math.min(3, tl.scenes.length - 1)]; tl.draw(c.getContext('2d'), sc.start + sc.dur * 0.8); }, 60 * i);
       return;
     }
     const d = migrate(raw);
@@ -327,4 +329,5 @@ $('#reset-all').addEventListener('click', async () => {
   setTimeout(() => location.reload(), 600);
 });
 
+initFx();
 route();

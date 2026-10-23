@@ -7,7 +7,10 @@ import { rng } from './render/motifs.js';
 import { renderTrack, decodeFile, audioCtx } from './music.js';
 import { ReelTimeline } from './render/reel.js';
 import { StoryTimeline, ensureStoryFonts } from './render/story.js';
-export const makeTimeline = (design, W, H) => design.kind === 'story' ? new StoryTimeline(design, W, H) : (design.video.reel && design.video.reel !== 'cards' ? new ReelTimeline(design, W, H) : new Timeline(design, W, H));
+import { ArtReelTimeline, isArtTemplate } from './render/artreel.js';
+import { storage } from './storage.js';
+export const clipBlob = key => storage.getAudio(key);
+export const makeTimeline = (design, W, H) => design.kind === 'story' ? (isArtTemplate(design.story?.template) ? new ArtReelTimeline(design, W, H) : new StoryTimeline(design, W, H)) : (design.video.reel && design.video.reel !== 'cards' ? new ReelTimeline(design, W, H) : new Timeline(design, W, H));
 
 export const VIDEO_FORMATS = {
   story: { label: '9:16 · WhatsApp Status / Reels', w: 1080, h: 1920 },
@@ -161,6 +164,7 @@ export async function recordVideo(design, { audio, onProgress, signal }) {
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   const tl = makeTimeline(design, W, H);
+  if (tl.ready) await tl.ready(clipBlob);
   // pre-render cached scenes
   tl.scenes.forEach((_, i) => tl.sceneCanvas(i, 1));
   tl.draw(ctx, 0);
@@ -190,6 +194,7 @@ export async function recordVideo(design, { audio, onProgress, signal }) {
     const tick = () => {
       const t = (performance.now() - t0) / 1000;
       if (signal?.cancelled || t >= tl.total) return resolve();
+      tl.liveSync?.(t);
       tl.draw(ctx, t);
       onProgress?.(t / tl.total);
       if (document.hidden) setTimeout(tick, 33); else requestAnimationFrame(tick);
@@ -270,6 +275,7 @@ export async function encodeMP4(design, { audio, onProgress, signal }) {
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   const tl = makeTimeline(design, W, H);
+  if (tl.ready) await tl.ready(clipBlob);
   const total = tl.total;
   const muxer = new Mux.Muxer({
     target: new Mux.ArrayBufferTarget(),
@@ -302,6 +308,7 @@ export async function encodeMP4(design, { audio, onProgress, signal }) {
   for (let i = 0; i < frames; i++) {
     if (signal?.cancelled) { try { venc.close(); } catch { } return { cancelled: true }; }
     if (failure) throw failure;
+    if (tl.prepare) await tl.prepare(i / FPS);
     tl.draw(ctx, i / FPS);
     const frame = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
     venc.encode(frame, { keyFrame: i % (FPS * 2) === 0 });
