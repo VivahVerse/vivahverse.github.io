@@ -99,3 +99,31 @@ export async function exportZipCards(design, fmtKey, type = 'png', onProgress) {
 }
 
 export { pageList };
+
+/** One ZIP with everything: PDF, every page (JPG), cover PNG, function cards, save-the-date, Instagram sizes. */
+export async function exportEverything(design, printSize = '5x7', onProgress) {
+  const JSZip = await loadScript('vendor/jszip.min.js', 'JSZip');
+  if (!JSZip) throw new Error('The ZIP library failed to load.');
+  await prepare(design);
+  const zip = new JSZip();
+  const base = slug(fileBase(design));
+  const pages = pageList(design, printSize);
+  const jobs = [];
+  jobs.push(async () => { const r = await exportPDF(design, pages, printSize, { bleed: !!design.print?.bleed }); zip.file(`${base}-invitation.pdf`, r.blob); });
+  pages.forEach((p, i) => jobs.push(async () => {
+    const c = renderCanvas(design, p, printSize);
+    zip.file(`pages/${String(i + 1).padStart(2, '0')}-${slug(pageName(design, p))}.jpg`, await toBlob(c, 'image/jpeg', 0.93));
+  }));
+  jobs.push(async () => zip.file(`${base}-cover.png`, await toBlob(renderCanvas(design, { kind: 'cover' }, printSize))));
+  jobs.push(async () => zip.file(`${base}-save-the-date.png`, await toBlob(renderCanvas(design, { kind: 'savedate' }, 'portrait'))));
+  ['story', 'portrait', 'square'].forEach(f => jobs.push(async () => zip.file(`instagram/${base}-${f}.png`, await toBlob(renderCanvas(design, { kind: 'cover' }, f)))));
+  if (design.type !== 'events') design.events.forEach((e, i) => jobs.push(async () => {
+    const c = renderCanvas(design, { kind: 'event', index: i }, 'portrait');
+    zip.file(`function-cards/${String(i + 1).padStart(2, '0')}-${slug(e.name.en || 'function')}.jpg`, await toBlob(c, 'image/jpeg', 0.93));
+  }));
+  for (let i = 0; i < jobs.length; i++) { await jobs[i](); onProgress?.((i + 1) / (jobs.length + 1)); await new Promise(r => setTimeout(r, 0)); }
+  zip.file('README.txt', `Your wedding invitation files\n\n${base}-invitation.pdf — print-ready PDF (${FORMATS[printSize]?.label || printSize})\npages/ — every page as a high-quality JPG\n${base}-cover.png — the cover as PNG\n${base}-save-the-date.png — save-the-date card (4:5)\ninstagram/ — cover in 9:16 (Status/Reels), 4:5 and 1:1\nfunction-cards/ — one 4:5 card per function, ready for WhatsApp\n\nMade with Shubh Vivah Studio.\n`);
+  const blob = await zip.generateAsync({ type: 'blob' });
+  onProgress?.(1);
+  return { blob, name: `${base}-all-invitation-files.zip`, count: jobs.length };
+}

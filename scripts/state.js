@@ -84,7 +84,7 @@ export function defaultDesign(templateId = 'rajmahal', cultureId = 'hindu-north'
     },
     photos: { couple: null, family: [] },
     pages: { cover: true, events: true, eventCards: true, closing: true },
-    video: { format: 'story', length: 'short', track: 'shehnai', volume: 0.8, start: 0, transition: 'fade', particles: 'petals', timeline: true, audioName: '' },
+    video: { format: 'story', length: 'short', track: 'shehnai', volume: 0.8, start: 0, transition: 'fade', particles: 'petals', timeline: true, audioName: '', link: '', verseIntro: true, style: 'traditional' },
     print: { size: '5x7', bleed: false },
     site: { story: true, gallery: true, music: true, blessings: true, countdown: true, url: '' },
     updatedAt: Date.now(),

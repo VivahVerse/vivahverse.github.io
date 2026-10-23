@@ -152,6 +152,7 @@ function buildFilters() {
     $$('#f-cats .chip').forEach(x => x.setAttribute('aria-pressed', x.dataset.cat === ''));
     renderGallery();
   });
+  $('#tpl-more-btn').addEventListener('click', () => renderGallery(true));
   $('#tpl-grid').addEventListener('click', e => {
     const b = e.target.closest('[data-preview]'); if (b) previewTemplate(b.dataset.preview);
   });
@@ -183,11 +184,16 @@ function drawThumb(c) {
   ensureFonts(d).then(() => renderPage(c.getContext('2d'), c.width, c.height, d, { kind: 'cover' }));
 }
 
-function renderGallery() {
-  const list = filtered();
+let galleryLimit = 12;
+function renderGallery(more = false) {
+  galleryLimit = more ? galleryLimit + 12 : 12;
+  const all = filtered();
+  const list = all.slice(0, galleryLimit);
   const grid = $('#tpl-grid');
-  $('#tpl-count').textContent = `${list.length} template${list.length === 1 ? '' : 's'}`;
-  $('#tpl-empty').hidden = list.length > 0;
+  $('#tpl-count').textContent = `${all.length} template${all.length === 1 ? '' : 's'}${all.length > list.length ? ` · showing ${list.length}` : ''}`;
+  $('#tpl-empty').hidden = all.length > 0;
+  $('#tpl-more').hidden = all.length <= list.length;
+  $('#tpl-more-btn').textContent = `Show more designs (${all.length - list.length} more)`;
   grid.innerHTML = list.map(t => `<article class="tpl-card">
     <div class="tpl-thumb"><canvas width="400" height="560" data-tpl="${t.id}" role="img" aria-label="${esc(`${t.name} template preview: ${t.tagline}`)}"></canvas>
       <div class="tpl-badges">${t.popular >= 90 ? '<span class="badge">Popular</span>' : ''}<span class="badge">${esc(t.region)}</span></div></div>

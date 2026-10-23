@@ -7,18 +7,30 @@ import { fmtDate, fmtTimeRange, parseDate } from './i18n.js';
 import { $, $$, esc, icon, toast, confirmDialog, openModal, closeModal, downloadBlob, copyText, fmtBytes, debounce, readImage, slug, reducedMotion } from './ui.js';
 import { storage, prefs } from './storage.js';
 import * as EX from './exporter.js';
-import { TRACKS, renderTrack, decodeFile, playPreview, stopPreview, isPlaying } from './music.js';
-import { Timeline, VIDEO_FORMATS, recordVideo, getMusic, videoSupport } from './video.js';
+import { TRACKS, SONG_IDEAS, youtubeSearch, parseMusicLink, renderTrack, decodeFile, playPreview, stopPreview, isPlaying } from './music.js';
+import { Timeline, VIDEO_FORMATS, exportBestVideo, getMusic, videoSupport } from './video.js';
 import { invitationText, waLink, rsvpMessage, hashtags, captions, shareFile, shareText, canShareFiles, qrCanvas, isUrl, sortedEvents } from './share.js';
 import { buildMicrosite } from './microsite.js';
 import { CONFIG } from './config.js';
 
 const idle = fn => (window.requestIdleCallback ? requestIdleCallback(() => fn(), { timeout: 200 }) : setTimeout(fn, 1));
 const STEPS = [
-  { id: 1, name: 'Template' }, { id: 2, name: 'Type & style' }, { id: 3, name: 'Couple & date' },
-  { id: 4, name: 'Family & wording' }, { id: 5, name: 'Functions' }, { id: 6, name: 'Customize' },
-  { id: 7, name: 'Music & video' }, { id: 8, name: 'Preview' }, { id: 9, name: 'Download & share' },
+  { id: 1, name: 'Choose design' }, { id: 2, name: 'Your details' }, { id: 3, name: 'Functions' },
+  { id: 4, name: 'Style & music' }, { id: 5, name: 'Download & share' },
 ];
+const LAST = STEPS.length;
+const VIDEO_STYLES = [
+  ['traditional', 'Traditional', 'Shehnai, falling petals, soft fades, opens with your chaupai or mantra'],
+  ['modern', 'Modern', 'Piano, gold sparkles, sliding cards'],
+  ['trending', 'Trending reel', 'Dholki beat, sparkles, slow zoom, short for Reels & Status'],
+  ['devotional', 'Devotional', 'Sitar, petals, long version with every function'],
+];
+const VIDEO_PRESETS = {
+  traditional: { transition: 'fade', particles: 'petals', length: 'short', track: 'shehnai', verseIntro: true },
+  modern: { transition: 'slide', particles: 'sparkles', length: 'short', track: 'piano' },
+  trending: { transition: 'zoom', particles: 'sparkles', length: 'short', track: 'dholki', format: 'story' },
+  devotional: { transition: 'fade', particles: 'petals', length: 'long', track: 'sitar', verseIntro: true },
+};
 
 const ui = { step: 1, page: 0, fmt: '5x7', errors: {}, openEvent: null, visited: new Set([1]), playing: null, exportJob: null, audioBuf: null, audioDur: 0 };
 let initialised = false;
@@ -64,15 +76,16 @@ function range(label, path, min, max, step, fmt = v => v, cls = '') {
 }
 
 // ---------- step renderers ----------
-const R = {};
+const R = {}; // the 5 visible steps
+const P = {}; // building blocks
 
-R[1] = () => `
+P[1] = () => `
   <h2>Choose a template</h2>
   <p class="lead">Each design has its own palette, ornaments and typography. You can switch at any time without losing your details. The previews show your own names.</p>
   <label class="search" style="margin-bottom:14px">${icon('search')}<span class="sr">Filter templates</span><input type="search" id="mini-search" placeholder="Filter by name or style"></label>
   <div class="mini-grid" id="mini-grid">${TEMPLATES.map(t => `<button type="button" class="mini" data-tpl="${t.id}" aria-pressed="${D().templateId === t.id}" data-search="${esc((t.name + ' ' + t.tagline + ' ' + t.categories.join(' ') + ' ' + t.cultures.join(' ') + ' ' + t.region).toLowerCase())}"><canvas width="236" height="330" aria-hidden="true"></canvas>${esc(t.name)}</button>`).join('')}</div>`;
 
-R[2] = () => {
+P[2] = () => {
   const d = D();
   const types = [
     ['complete', 'Complete invitation', 'Cover, functions page, a card per function and a closing page'],
@@ -108,7 +121,7 @@ function cultureHint() {
   return `Suggested functions: ${c.events.map(e => EVENT_PRESETS[e].name.en).join(', ')}.${t && t.id !== D().templateId ? ` Suggested template: <button type="button" class="btn btn-text" data-act="apply-tpl" data-tpl="${t.id}" style="padding:0;min-height:0;text-decoration:underline">${esc(t.name)}</button>` : ''}`;
 }
 
-R[3] = () => {
+P[3] = () => {
   const d = D();
   const p = d.photos.couple;
   return `
@@ -161,14 +174,15 @@ function photoEditor(kind, p, evIdx) {
     </div></div>`;
 }
 
-R[4] = () => {
+P[4] = () => {
   const d = D();
   return `
   <h2>Family &amp; wording</h2>
   <p class="lead">Use the suggested wording or write your own. Tick <em>Show</em> to include a line or untick it to hide it.</p>
   <fieldset class="fieldset"><div class="fs-head"><span class="fs-title">Invocation / blessing</span><label class="vis"><input type="checkbox" data-bind="show.invocation" ${d.show.invocation ? 'checked' : ''}> Show</label></div>
-    ${select('Choose', 'wording.invocation', INVOCATIONS.map(i => [i.id, i.label]), { full: true })}
-    ${d.wording.invocation === 'custom' ? `<div class="fgrid" style="margin-top:10px">${bilingual('Your invocation', 'wording.invocationCustom', { full: true, alwaysHi: true })}</div>` : `<p class="muted" style="margin-top:6px" lang="hi">${esc(invocationText(d, d.lang === 'en' ? 'en' : 'hi')) || 'No invocation will be shown.'}</p>`}
+    ${invocationSelect(d)}
+    ${d.wording.invocation === 'custom' ? `<div class="fgrid" style="margin-top:10px">${bilingual('Your invocation', 'wording.invocationCustom', { full: true, alwaysHi: true })}</div>` : `<div class="verse-preview"><p lang="hi">${esc(invocationText(d, d.lang === 'en' ? 'en' : 'hi')) || 'No invocation will be shown.'}</p>${INVOCATIONS.find(i => i.id === d.wording.invocation)?.translit ? `<small><em>${esc(INVOCATIONS.find(i => i.id === d.wording.invocation).translit.replace(/\n/g, ' · '))}</em></small>` : ''}${INVOCATIONS.find(i => i.id === d.wording.invocation)?.meaning ? `<small>${esc(INVOCATIONS.find(i => i.id === d.wording.invocation).meaning)}</small>` : ''}</div>`}
+    ${INVOCATIONS.find(i => i.id === d.wording.invocation)?.group === 'Ram Charit Manas' ? '<p class="muted" style="margin-top:6px">From Shri Ramcharitmanas (Goswami Tulsidas), Bal Kand. The verse is printed in Devanagari in every language option. Text follows the common Gita Press spelling; please check with your family pandit if you prefer a different reading.</p>' : ''}
   </fieldset>
   <fieldset class="fieldset"><div class="fs-head"><span class="fs-title">Opening line</span><label class="vis"><input type="checkbox" data-bind="show.headline" ${d.show.headline ? 'checked' : ''}> Show</label></div>
     ${presetPicker('headline')}
@@ -209,7 +223,7 @@ function presetPicker(key) {
   return `<div class="field" style="margin-bottom:10px"><span><label for="preset-${key}">Suggestions</label></span><select id="preset-${key}" data-preset="${key}"><option value="">Choose a suggested line…</option>${WORDING[key].map((w, i) => `<option value="${i}">${esc(w.en)} / ${esc(w.hi)}</option>`).join('')}</select></div>`;
 }
 
-R[5] = () => {
+P[5] = () => {
   const d = D();
   return `
   <h2>Wedding functions</h2>
@@ -262,7 +276,7 @@ function eventItem(e, i) {
   </li>`;
 }
 
-R[6] = () => {
+P[6] = () => {
   const d = D();
   const s = d.style;
   const tpl = TEMPLATE_MAP[d.templateId];
@@ -293,7 +307,7 @@ R[6] = () => {
   </div></fieldset>
   <fieldset class="fieldset"><legend>Decoration</legend><div class="fgrid">
     ${select('Ornaments', 'style.ornaments', [['full', 'Full ornaments'], ['minimal', 'Minimal'], ['none', 'None (clean)']])}
-    ${select('Frame / border', 'style.frame', [['template', 'Template default'], ['double', 'Double line'], ['thin', 'Thin line'], ['arch', 'Arch'], ['kasavu', 'Kasavu bands'], ['phulkari', 'Phulkari'], ['brocade', 'Brocade'], ['paithani', 'Paithani'], ['alpana', 'Alpana'], ['none', 'No frame']])}
+    ${select('Frame / border', 'style.frame', [['template', 'Template default'], ['double', 'Double line'], ['thin', 'Thin line'], ['arch', 'Arch'], ['kasavu', 'Kasavu bands'], ['phulkari', 'Phulkari'], ['brocade', 'Brocade'], ['paithani', 'Paithani'], ['alpana', 'Alpana'], ['scallop', 'Scalloped'], ['corners', 'Corner brackets'], ['rounded', 'Rounded'], ['dotted', 'Dotted'], ['deco', 'Art deco'], ['b2-madhubani', 'Madhubani band'], ['b2-gamosa', 'Gamosa band'], ['b2-pattachitra', 'Pattachitra band'], ['b2-paisleyChain', 'Paisley band'], ['none', 'No frame']])}
     <div class="full">${check('Background pattern', 'style.pattern')}</div>
   </div></fieldset>
   <fieldset class="fieldset"><legend>Visibility</legend>
@@ -307,12 +321,16 @@ R[6] = () => {
   </div>`;
 };
 
-R[7] = () => {
+P[7] = () => {
   const d = D(), v = d.video;
   const sup = videoSupport();
   return `
   <h2>Music &amp; video</h2>
   <p class="lead">Turn your cards into an animated invitation. Press <strong>Play preview</strong> to watch it in the preview area.</p>
+  <fieldset class="fieldset"><legend>Video style</legend>
+    <div class="radio-cards">${VIDEO_STYLES.map(([id, t, sub]) => `<label class="radio-card"><input type="radio" name="vstyle" value="${id}" data-vstyle="${id}" ${(v.style || 'traditional') === id ? 'checked' : ''}><strong>${t}</strong><small>${sub}</small></label>`).join('')}</div>
+    <div style="margin-top:10px">${check('Open with the chaupai / mantra / blessing (shown large, then the invitation)', 'video.verseIntro')}</div>
+  </fieldset>
   <fieldset class="fieldset"><legend>Video</legend><div class="fgrid">
     ${select('Format', 'video.format', Object.entries(VIDEO_FORMATS).map(([k, f]) => [k, f.label]), { full: true })}
     ${select('Length', 'video.length', [['short', 'Short (about 15–20 s)'], ['long', 'Extended (one scene per function)']])}
@@ -321,25 +339,32 @@ R[7] = () => {
     <div class="field">${check('Include functions', 'video.timeline')}</div>
   </div>
   <p class="muted" style="margin-top:8px" id="video-len"></p></fieldset>
-  <fieldset class="fieldset"><legend>Music</legend>
-    <div class="radio-cards" style="grid-template-columns:1fr">${TRACKS.map(t => `<label class="radio-card"><input type="radio" name="track" value="${t.id}" data-bind="video.track" ${v.track === t.id ? 'checked' : ''}><strong>${esc(t.name)}${t.id === 'upload' && v.audioName ? `: ${esc(v.audioName)}` : ''}</strong>${t.desc ? `<small>${esc(t.desc)}</small>` : ''}</label>`).join('')}</div>
-    ${v.track === 'upload' ? `<div class="inline" style="margin-top:12px"><label class="btn btn-outline btn-sm file-btn">${icon('upload')}${v.audioName ? 'Replace audio' : 'Choose audio file'}<input type="file" accept="audio/*" hidden data-upload="audio"></label><span class="muted">MP3, M4A, WAV or OGG, up to ${CONFIG.maxAudioMB} MB</span></div>` : ''}
+  <fieldset class="fieldset"><legend>Music for the video</legend>
+    <div class="track-grid">${TRACKS.map(t => `<label class="radio-card track"><input type="radio" name="track" value="${t.id}" data-bind="video.track" ${v.track === t.id ? 'checked' : ''}><strong>${esc(t.name)}${t.id === 'upload' && v.audioName ? `<br><span class="muted">${esc(v.audioName)}</span>` : ''}</strong>${t.desc ? `<small>${esc(t.desc)}</small>` : ''}</label>`).join('')}</div>
+    ${v.track === 'upload' ? `<div class="inline" style="margin-top:12px"><label class="btn btn-maroon btn-sm file-btn">${icon('upload')}${v.audioName ? 'Choose a different song' : 'Choose a song file'}<input type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg" hidden data-upload="audio"></label><span class="muted">MP3, M4A, WAV or OGG, up to ${CONFIG.maxAudioMB} MB. Stays on your device.</span></div>` : ''}
     ${v.track !== 'none' ? `<div class="fgrid" style="margin-top:12px">
       ${range('Volume', 'video.volume', 0, 1, 0.05, x => Math.round(x * 100) + '%')}
-      ${v.track === 'upload' && ui.audioDur ? range('Start from', 'video.start', 0, Math.max(0, Math.floor(ui.audioDur - 5)), 1, x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`) : ''}
+      ${v.track === 'upload' && ui.audioDur ? range('Start the song from', 'video.start', 0, Math.max(0, Math.floor(ui.audioDur - 5)), 1, x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`) : ''}
     </div>
-    <div class="inline" style="margin-top:8px"><button type="button" class="btn btn-outline btn-sm" data-act="music-test">${icon(isPlaying() ? 'pause' : 'music')}${isPlaying() ? 'Stop music' : 'Listen to music'}</button></div>` : ''}
-    <p class="note" style="margin-top:12px">${icon('info')}<span>Only upload music you have the right to use. We never download songs from YouTube, Spotify or other services. Instagram and WhatsApp may mute copyrighted audio after you share, and exporting doesn't guarantee the music stays audible. The three built-in tracks are original compositions generated in your browser.</span></p>
+    <div class="inline" style="margin-top:8px"><button type="button" class="btn btn-outline btn-sm" data-act="music-test">${icon(isPlaying() ? 'pause' : 'music')}${isPlaying() ? 'Stop music' : 'Listen'}</button></div>` : ''}
+    <p class="note" style="margin-top:12px">${icon('info')}<span>The nine built-in tracks are original music composed for this site and are free to use. For a film song, upload an audio file you have the right to use. Instagram and WhatsApp may still mute copyrighted songs after you post.</span></p>
+  </fieldset>
+  <fieldset class="fieldset"><legend>Song from YouTube or Spotify</legend>
+    <p class="muted" style="margin-bottom:10px">Paste a link to play that song on your <strong>wedding website</strong> (step 5). The song streams from YouTube or Spotify through their official player.</p>
+    ${field('YouTube or Spotify link', 'video.link', { type: 'url', full: true, ph: 'https://www.youtube.com/watch?v=… or https://open.spotify.com/track/…' })}
+    <div id="link-box" style="margin-top:10px"></div>
+    <p class="note" style="margin-top:10px">${icon('info')}<span><strong>Why can't the YouTube song go into the MP4?</strong> YouTube and Spotify don't allow their audio to be downloaded or copied into other files, and most film songs are copyrighted. To use a popular song in your <em>video</em>: (1) download the MP4 with no music, then add the song from Instagram's or WhatsApp's own licensed music library when you post, or (2) upload a song file you're allowed to use.</span></p>
+    ${fold('Popular wedding song ideas', SONG_IDEAS.map(g => `<p class="label" style="margin:10px 0 6px">${esc(g.group)}</p><ul class="songs">${g.songs.map(([t, by]) => `<li><span><strong>${esc(t)}</strong> <small>${esc(by)}</small></span><a href="${youtubeSearch(t, by)}" target="_blank" rel="noopener" class="btn btn-text btn-sm">Find on YouTube</a></li>`).join('')}</ul>`).join('') + '<p class="muted" style="margin-top:8px">Links open a YouTube search. Copy the official video link and paste it above for your website.</p>')}
   </fieldset>
   <div class="inline">
     <button type="button" class="btn btn-gold" data-act="video-preview">${icon(ui.playing ? 'pause' : 'play')}${ui.playing ? 'Stop preview' : 'Play preview'}</button>
-    <button type="button" class="btn btn-maroon" data-act="video-export" ${sup.mime ? '' : 'disabled'}>${icon('film')}Export video${sup.mime ? ` (${sup.mime.ext.toUpperCase()})` : ''}</button>
+    <button type="button" class="btn btn-maroon" data-act="video-export" ${sup.recorder || window.VideoEncoder ? '' : 'disabled'}>${icon('film')}Create MP4 video</button>
   </div>
   <div id="video-progress" style="margin-top:12px"></div>
-  <p class="muted" style="margin-top:10px">${sup.mime ? `Your browser will record <strong>${sup.mime.ext.toUpperCase()}</strong>${sup.mime.ext === 'webm' ? '. WhatsApp and Instagram prefer MP4, so for MP4 use recent Chrome, Edge or Safari, or convert the file afterwards' : ''}. Recording runs in real time, so keep this tab open and visible.` : 'Video export is not supported in this browser. You can still download every card as an image or PDF in step 9.'}</p>`;
+  <p class="muted" style="margin-top:10px">${window.VideoEncoder ? 'Your browser can build a true MP4 quickly, usually faster than the video plays.' : sup.mime ? `Your browser records the video in real time as <strong>${sup.mime.ext.toUpperCase()}</strong>, so keep this tab open and visible.${sup.mime.ext === 'webm' ? ' For MP4, use Chrome, Edge or Safari.' : ''}` : 'Video export is not supported in this browser. You can still download every card as an image or PDF.'}</p>`;
 };
 
-R[8] = () => `
+P[8] = () => `
   <h2>Preview all pages</h2>
   <p class="lead">Every page in the selected format. Select a page to view it larger, or change the format above the preview.</p>
   <div class="field" style="margin-bottom:14px"><span><label for="pv-fmt">Format</label></span><select id="pv-fmt">${Object.entries(FORMATS).map(([k, f]) => `<option value="${k}" ${ui.fmt === k ? 'selected' : ''}>${esc(f.label)}</option>`).join('')}</select></div>
@@ -349,7 +374,7 @@ R[8] = () => `
   <div class="preview-grid"><button type="button" data-savedate="1"><canvas width="${thumbSize().w}" height="${thumbSize().h}" id="pv-sd" aria-hidden="true"></canvas>Save the Date</button></div>`;
 const thumbSize = () => { const f = FORMATS[ui.fmt]; const k = 260 / Math.max(f.w, f.h); return { w: Math.round(f.w * k), h: Math.round(f.h * k) }; };
 
-R[9] = () => {
+P[9] = () => {
   const d = D();
   const pages = pagesFor();
   const pageOpts = [...pages.map((p, i) => [String(i), p.label]), ['sd', 'Save the Date']];
@@ -359,6 +384,7 @@ R[9] = () => {
   <h2>Download &amp; share</h2>
   <p class="lead">Files are created on your device at full resolution. Nothing is uploaded.</p>
   ${Object.keys(ui.errors).length ? `<p class="note" style="border-left-color:var(--danger)">${icon('info')}<span>Some details still need attention. <button class="btn btn-text btn-sm" data-act="goto-error" style="padding:0;min-height:0;text-decoration:underline">Review</button></span></p>` : ''}
+  <details class="fold"><summary><span>More download options</span><small>choose page, size, paper, bleed, function cards</small></summary><div class="fold-body">
   <fieldset class="fieldset"><legend>Images</legend>
     <div class="fgrid">
       <div class="field"><span><label for="dl-page">Page</label></span><select id="dl-page">${pageOpts.map(([v, l]) => `<option value="${v}" ${String(ui.page) === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
@@ -381,13 +407,9 @@ R[9] = () => {
       ${d.events.length ? dlItem('zip', 'All function cards', `${d.events.length} separate high-quality JPEG cards in a ZIP, at the size chosen above`) : ''}
     </div>
     <p class="muted" style="margin-top:8px">300 dpi. Keep important text inside the frame. Most print shops prefer PDF with bleed.</p>
-  </fieldset>
-  <fieldset class="fieldset"><legend>Video &amp; website</legend>
-    <div class="dl-list">
-      <div class="dl-item">${icon('film')}<div class="dl-info"><strong>Video invitation</strong><small>${esc(VIDEO_FORMATS[d.video.format].label)} · music: ${esc(TRACKS.find(t => t.id === d.video.track)?.name || 'none')}</small></div><button class="btn btn-outline btn-sm" type="button" data-goto="7">Set up &amp; export</button></div>
-      <div class="dl-item">${icon('globe')}<div class="dl-info"><strong>Wedding website (.zip)</strong><small>Static site with countdown, functions, gallery, WhatsApp RSVP</small><span class="dl-result" data-res="site"></span></div><button class="btn btn-text btn-sm" type="button" data-act="site-preview">Preview</button><button class="btn btn-maroon btn-sm" type="button" data-dl="site">${icon('download')}ZIP</button></div>
-    </div>
-    <div class="checks" style="margin-top:10px">${check('Countdown', 'site.countdown')}${check('Our story', 'site.story')}${check('Photo gallery', 'site.gallery')}${check('Background music button', 'site.music')}${check('Blessings box (sent via WhatsApp)', 'site.blessings')}</div>
+  </fieldset></div></details>
+  <fieldset class="fieldset"><legend>Website options</legend>
+    <div class="checks">${check('Countdown', 'site.countdown')}${check('Our story', 'site.story')}${check('Photo gallery', 'site.gallery')}${check('Music button', 'site.music')}${check('Blessings box (sent via WhatsApp)', 'site.blessings')}</div>
     <p class="note" style="margin-top:10px">${icon('info')}<span>The site is a package you host yourself, free on GitHub Pages, Netlify Drop or Cloudflare Pages. Instructions are inside the ZIP. This studio can't publish a link for you or store RSVPs.</span></p>
   </fieldset>
   <fieldset class="fieldset"><legend>Share</legend>
@@ -425,6 +447,111 @@ R[9] = () => {
 };
 function dlItem(key, title, sub) {
   return `<div class="dl-item">${icon(key.startsWith('pdf') ? 'download' : key === 'zip' ? 'copy' : 'image')}<div class="dl-info"><strong>${esc(title)}</strong><small>${esc(sub)}</small><span class="dl-result" data-res="${key}"></span></div><button class="btn btn-maroon btn-sm" type="button" data-dl="${key}">${icon('download')}Download</button></div>`;
+}
+
+
+function invocationSelect(d) {
+  const groups = [...new Set(INVOCATIONS.map(i => i.group))];
+  return `<div class="field full"><span><label for="f-wording-invocation">Blessing, mantra or verse at the top</label><span class="hint">${INVOCATIONS.length - 2} options</span></span>
+    <select id="f-wording-invocation" data-bind="wording.invocation">${groups.map(g => `<optgroup label="${esc(g)}">${INVOCATIONS.filter(i => i.group === g).map(i => `<option value="${i.id}" ${d.wording.invocation === i.id ? 'selected' : ''}>${esc(i.label)}</option>`).join('')}</optgroup>`).join('')}</select></div>`;
+}
+const strip = html => html.replace(/^\s*<h2>[\s\S]*?<\/h2>\s*<p class="lead">[\s\S]*?<\/p>/, '');
+const fold = (title, body, open = false, sub = '') => `<details class="fold" ${open ? 'open' : ''}><summary><span>${title}</span>${sub ? `<small>${sub}</small>` : ''}</summary><div class="fold-body">${body}</div></details>`;
+const TRAD_FILTERS = ['All', 'Hindu', 'Sikh', 'Muslim', 'Christian', 'Jain', 'Buddhist', 'Parsi', 'Universal', 'Folk Art', 'Luxury', 'Minimalist'];
+let tplFilter = 'All';
+
+R[1] = () => {
+  const d = D();
+  return `
+  <h2>Choose your design</h2>
+  <p class="lead">Pick a tradition and a design. You can change either at any time without losing your details.</p>
+  <div class="fgrid" style="margin-bottom:12px">
+    <div class="field"><span><label for="culture-pick">Wedding tradition</label></span>
+      <select id="culture-pick">${CULTURES.map(c => `<option value="${c.id}" ${d.culture === c.id ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}</select></div>
+    <div class="field"><span><label for="f-lang">Language on the card</label></span>
+      <select id="f-lang" data-bind="lang">${LANGUAGES.map(l => `<option value="${l.id}" ${d.lang === l.id ? 'selected' : ''}>${esc(l.label)}</option>`).join('')}</select></div>
+  </div>
+  <p class="muted" id="culture-hint" style="margin:-4px 0 14px">${cultureHint()}</p>
+  <div class="chips" role="group" aria-label="Filter designs">${TRAD_FILTERS.map(f => `<button type="button" class="chip" data-tfilter="${f}" aria-pressed="${tplFilter === f}">${f}</button>`).join('')}</div>
+  <label class="search" style="margin:10px 0 14px">${icon('search')}<span class="sr">Search designs</span><input type="search" id="mini-search" placeholder="Search ${TEMPLATES.length} designs: peacock, lotus, Bengali…"></label>
+  <div class="mini-grid" id="mini-grid">${TEMPLATES.map(t => `<button type="button" class="mini" data-tpl="${t.id}" aria-pressed="${d.templateId === t.id}" data-tags="${esc([...t.cultures, ...t.categories].join('|'))}" data-search="${esc((t.name + ' ' + t.tagline + ' ' + t.categories.join(' ') + ' ' + t.cultures.join(' ') + ' ' + t.region).toLowerCase())}"><canvas width="236" height="330" aria-hidden="true"></canvas><span>${esc(t.name)}</span></button>`).join('')}</div>
+  <p class="empty" id="mini-empty" hidden>No designs match. Try another filter.</p>`;
+};
+
+R[2] = () => {
+  const d = D();
+  const p3 = strip(P[3]());
+  const p4 = strip(P[4]());
+  // split P3 into its fieldsets: names, date, photo, family photos, story
+  const fs = p3.match(/<fieldset[\s\S]*?<\/fieldset>/g) || [];
+  const f4 = p4.match(/<fieldset[\s\S]*?<\/fieldset>/g) || [];
+  const [names, date, photo, family, story] = fs;
+  const [invocation, opening, parents, grand, hosts, message, closing, rsvp] = f4;
+  return `
+  <h2>Your details</h2>
+  <p class="lead">Only the names and the date are required. Everything else is optional and already filled with editable suggestions.</p>
+  ${names}${date}
+  ${fold('Blessing, mantra or verse', invocation, d.culture === 'hindu-ram', 'Ram Charit Manas chaupais, shlokas, Gurbani, Quran & Bible verses')}
+  ${fold('Couple photo', photo, false, 'optional')}
+  ${fold('Parents & family', parents + grand + hosts, false, 'names of parents, grandparents and hosts')}
+  ${fold('Invitation wording', opening + message + closing, false, 'opening line, message, closing')}
+  ${fold('RSVP contact', rsvp, false, 'phone for WhatsApp RSVPs')}
+  ${fold('Website extras', (story || '') + (family || ''), false, 'your story & gallery photos')}`;
+};
+
+R[3] = () => {
+  const d = D();
+  return strip(P[5]()).replace(/^/, `
+  <h2>Wedding functions</h2>
+  <p class="lead">Suggested for your tradition. Rename, reorder, duplicate or delete them, or add any ceremony.</p>`) + `
+  <div class="sep"></div>
+  <p class="h3">What goes in the invitation?</p>
+  <div class="radio-cards">${[['complete', 'Full invitation', 'Cover, functions, cards & closing'], ['events', 'Function cards only', 'One card per function'], ['savedate', 'Save the date', 'Single announcement card']].map(([v, t, sub]) => `<label class="radio-card"><input type="radio" name="type" value="${v}" data-bind="type" ${(d.type === v || (v === 'complete' && !['events', 'savedate'].includes(d.type))) ? 'checked' : ''}><strong>${t}</strong><small>${sub}</small></label>`).join('')}</div>
+  ${!['events', 'savedate'].includes(d.type) ? `<div class="checks" style="margin-top:10px">${check('Cover', 'pages.cover')}${check('All-functions page', 'pages.events')}${check('Card for each function', 'pages.eventCards')}${check('Closing & RSVP page', 'pages.closing')}</div>` : ''}`;
+};
+
+R[4] = () => {
+  const p6 = strip(P[6]());
+  const p7 = strip(P[7]());
+  const fs6 = p6.match(/<fieldset[\s\S]*?<\/fieldset>/g) || [];
+  const tail6 = p6.slice(p6.lastIndexOf('</fieldset>') + 11);
+  const [colours, type, deco, vis] = fs6;
+  return `
+  <h2>Style &amp; music</h2>
+  <p class="lead">Optional. Your design already looks complete, so change only what you like.</p>
+  ${fold('Colours', colours, true)}
+  ${fold('Fonts & text size', type)}
+  ${fold('Decoration & border', deco)}
+  ${fold('Show or hide lines', vis)}
+  ${fold('Music & video invitation', p7, true, 'MP4 for WhatsApp & Instagram')}
+  ${tail6}`;
+};
+
+R[5] = () => {
+  const p9 = strip(P[9]());
+  return `
+  <h2>Download &amp; share</h2>
+  <p class="lead">Choose a format. Every file is made on your device at full quality.</p>
+  ${downloadTiles()}
+  ${p9}
+  ${fold('Preview every page', strip(P[8]()))}`;
+};
+
+function downloadTiles() {
+  const d = D();
+  const sup = videoSupport();
+  return `<div class="dl-tiles">
+    <div class="dl-tile"><div class="dl-ico">${icon('image')}</div><strong>Image</strong><small>PNG or JPG of any page</small>
+      <div class="dl-row"><button class="btn btn-maroon btn-sm" data-quick="png">PNG</button><button class="btn btn-outline btn-sm" data-quick="jpg">JPG</button></div><span class="dl-result" data-res="quick-img"></span></div>
+    <div class="dl-tile"><div class="dl-ico">${icon('download')}</div><strong>PDF</strong><small>All pages, print-ready</small>
+      <div class="dl-row"><button class="btn btn-maroon btn-sm" data-quick="pdf">Download PDF</button></div><span class="dl-result" data-res="quick-pdf"></span></div>
+    <div class="dl-tile"><div class="dl-ico">${icon('film')}</div><strong>Video (MP4)</strong><small>${esc(VIDEO_FORMATS[d.video.format].label.split(' · ')[0])} · ${esc(TRACKS.find(t => t.id === d.video.track)?.name || 'No music')}</small>
+      <div class="dl-row"><button class="btn btn-maroon btn-sm" data-act="video-export" data-target="quick-vid" ${sup.recorder || window.VideoEncoder ? '' : 'disabled'}>Create MP4</button><button class="btn btn-text btn-sm" data-goto="4">Music</button></div><div id="quick-vid"></div></div>
+    <div class="dl-tile"><div class="dl-ico">${icon('globe')}</div><strong>Website</strong><small>Countdown, RSVP, gallery</small>
+      <div class="dl-row"><button class="btn btn-maroon btn-sm" data-dl="site">ZIP</button><button class="btn btn-text btn-sm" data-act="site-preview">Preview</button></div><span class="dl-result" data-res="site"></span></div>
+  </div>
+  <button class="btn btn-gold btn-lg dl-all" data-quick="all">${icon('download')}Download everything (ZIP)</button>
+  <p class="muted" style="text-align:center;margin:6px 0 18px">PDF, every page as JPG, cover as PNG, function cards, save-the-date and Instagram sizes in one file.</p>`;
 }
 
 // ---------- pages / preview ----------
@@ -483,8 +610,8 @@ function renderPanel({ keepScroll = false } = {}) {
   panel.innerHTML = `<div class="panel-content">${R[ui.step]()}</div>
     <div class="panel-foot">
       <button type="button" class="btn btn-outline" data-act="back" ${ui.step === 1 ? 'disabled' : ''}>${icon('left')}Back</button>
-      <span class="muted" style="align-self:center">Step ${ui.step} of 9</span>
-      ${ui.step < 9 ? `<button type="button" class="btn btn-maroon" data-act="next">Next${icon('right')}</button>` : `<button type="button" class="btn btn-gold" data-act="save-now">${icon('save')}Save</button>`}
+      <span class="muted" style="align-self:center">Step ${ui.step} of ${LAST}</span>
+      ${ui.step < LAST ? `<button type="button" class="btn btn-maroon" data-act="next">Next${icon('right')}</button>` : `<button type="button" class="btn btn-gold" data-act="save-now">${icon('save')}Save</button>`}
     </div>`;
   if (keepScroll) panel.scrollTop = st; else panel.scrollTop = 0;
   renderStepper();
@@ -495,36 +622,50 @@ function renderStepper() {
     const err = stepErrors(s.id);
     return `<button type="button" data-step="${s.id}" ${ui.step === s.id ? 'aria-current="step"' : ''} class="${err ? 'err' : ui.visited.has(s.id) && s.id !== ui.step ? 'done' : ''}"><span class="num">${s.id}</span>${s.name}${err ? '<span class="sr"> (needs attention)</span>' : ''}</button>`;
   }).join('');
-  $('#stepper [aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+  const cur = $('#stepper [aria-current]'), bar = $('#stepper');
+  if (cur && bar.scrollWidth > bar.clientWidth) bar.scrollLeft = cur.offsetLeft - (bar.clientWidth - cur.offsetWidth) / 2;
 }
 function stepErrors(step) {
   const keys = Object.keys(ui.errors);
-  if (step === 3) return keys.some(k => /^(couple|wedding)\./.test(k));
-  if (step === 4) return keys.some(k => /^rsvp\./.test(k));
-  if (step === 5) return keys.some(k => /^events\./.test(k));
+  if (step === 2) return keys.some(k => /^(couple|wedding|rsvp)\./.test(k));
+  if (step === 3) return keys.some(k => /^events\./.test(k));
+  if (step === 5) return keys.some(k => /^site\./.test(k));
   return false;
 }
 
 function afterPanel() {
-  if (ui.step === 1) drawMiniThumbs();
-  if (ui.step === 7) updateVideoLen();
-  if (ui.step === 8) drawPreviewGrid();
-  if (ui.step === 9) { updateWa(); drawQRBox(); }
+  if (ui.step === 1) { drawMiniThumbs(); applyTplFilter(); }
+  if (ui.step === 4) { updateVideoLen(); updateLinkBox(); }
+  if (ui.step === 5) { updateWa(); drawQRBox(); $('details.fold:has(#pv-grid)')?.addEventListener('toggle', e => e.target.open && drawPreviewGrid(), { once: true }); }
 }
 
 let thumbJob = 0;
+let thumbObs = null;
 function drawMiniThumbs() {
-  const job = ++thumbJob;
-  const btns = $$('#mini-grid .mini');
-  let i = 0;
-  const next = () => {
-    if (job !== thumbJob || i >= btns.length) return;
-    const b = btns[i++];
-    const c = b.querySelector('canvas');
-    renderPage(c.getContext('2d'), c.width, c.height, D(), { kind: 'cover' }, { templateId: b.dataset.tpl });
-    idle(next);
-  };
-  next();
+  ++thumbJob;
+  thumbObs?.disconnect();
+  const draw = b => { const c = b.querySelector('canvas'); renderPage(c.getContext('2d'), c.width, c.height, D(), { kind: 'cover' }, { templateId: b.dataset.tpl }); b.dataset.drawn = '1'; };
+  if (!('IntersectionObserver' in window)) { $$('#mini-grid .mini').forEach(draw); return; }
+  thumbObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { thumbObs.unobserve(e.target); idle(() => draw(e.target)); } }), { root: null, rootMargin: '300px' });
+  $$('#mini-grid .mini').forEach(b => thumbObs.observe(b));
+}
+function applyTplFilter() {
+  const q = ($('#mini-search')?.value || '').toLowerCase().trim();
+  let shown = 0;
+  $$('#mini-grid .mini').forEach(b => {
+    const okF = tplFilter === 'All' || b.dataset.tags.split('|').includes(tplFilter);
+    const okQ = !q || q.split(/\s+/).every(w => b.dataset.search.includes(w));
+    b.hidden = !(okF && okQ); if (!b.hidden) shown++;
+  });
+  const e = $('#mini-empty'); if (e) e.hidden = shown > 0;
+}
+function updateLinkBox() {
+  const box = $('#link-box'); if (!box) return;
+  const url = D().video.link;
+  const m = parseMusicLink(url);
+  if (!url) { box.innerHTML = ''; return; }
+  if (!m) { box.innerHTML = '<p class="err-msg">This doesn’t look like a YouTube or Spotify song link.</p>'; return; }
+  box.innerHTML = `<div class="inline"><span class="dl-result">✓ ${m.label} link added to your wedding website</span><button type="button" class="btn btn-outline btn-sm" data-act="load-player">${icon('play')}Listen here</button></div><div id="player-slot"></div><p class="muted" style="margin-top:6px">“Listen here” loads the ${m.label} player, which connects to ${m.label}.</p>`;
 }
 function drawPreviewGrid() {
   const job = ++thumbJob;
@@ -583,15 +724,15 @@ function validate() {
 }
 function errorsForStep(step) {
   const e = validate();
-  return Object.keys(e).filter(k => (step === 3 ? /^(couple|wedding)\./ : step === 4 ? /^rsvp\./ : step === 5 ? /^events\./ : step === 9 ? /^site\./ : /^$/).test(k));
+  return Object.keys(e).filter(k => (step === 2 ? /^(couple|wedding|rsvp)\./ : step === 3 ? /^events\./ : step === 5 ? /^site\./ : /^$/).test(k));
 }
 
 function goStep(n, { force = false } = {}) {
-  n = Math.max(1, Math.min(9, n));
+  n = Math.max(1, Math.min(LAST, n));
   if (!force && n > ui.step) {
     const errs = errorsForStep(ui.step);
     if (errs.length) {
-      if (ui.step === 5) { const m = errs[0].match(/^events\.(\d+)/); if (m) ui.openEvent = D().events[+m[1]]?.id; }
+      if (ui.step === 3) { const m = errs[0].match(/^events\.(\d+)/); if (m) ui.openEvent = D().events[+m[1]]?.id; }
       renderPanel({ keepScroll: true });
       const first = $('#panel [aria-invalid="true"]');
       first?.focus();
@@ -601,7 +742,7 @@ function goStep(n, { force = false } = {}) {
   }
   stopVideo();
   ui.step = n; ui.visited.add(n);
-  if (n === 9 || n === 8) validate();
+  if (n === LAST) validate();
   else ui.errors = Object.fromEntries(Object.entries(ui.errors).filter(() => false));
   renderPanel();
   history.replaceState(null, '', `#/studio?step=${n}`);
@@ -634,6 +775,7 @@ function onInput(e) {
   if (rerender.includes(path) || (el.type === 'radio')) { renderPanel({ keepScroll: true }); }
   if (/^events\.\d+\.(name|date|start|end)/.test(path) && e.type === 'change') renderPanel({ keepScroll: true });
   if (path.startsWith('video.')) updateVideoLen();
+  if (path === 'video.link') updateLinkBox();
 }
 function rangeFmt(path, v) {
   if (/zoom$/.test(path)) return v.toFixed(2) + '×';
@@ -661,6 +803,8 @@ async function onClick(e) {
   if (t.dataset.page != null && t.closest('#pv-grid')) { ui.page = +t.dataset.page; renderTabs(); schedulePreview(); openStageMobile(); return; }
   if (t.dataset.savedate) { ui.page = 'sd'; renderTabs(); schedulePreview(); openStageMobile(); return; }
   if (t.dataset.goto) { goStep(+t.dataset.goto, { force: true }); return; }
+  if (t.dataset.tfilter) { tplFilter = t.dataset.tfilter; $$('[data-tfilter]').forEach(b => b.setAttribute('aria-pressed', b === t)); applyTplFilter(); return; }
+  if (t.dataset.quick) { quickDownload(t.dataset.quick, t); return; }
   if (t.dataset.dl) { doDownload(t.dataset.dl, t); return; }
   if (t.dataset.copyCap != null) { (await copyText(captions(d)[+t.dataset.copyCap])) ? toast('Caption copied.', 'ok') : toast('Copy failed. Select the text and copy it manually.', 'err'); return; }
   switch (act) {
@@ -727,6 +871,11 @@ async function onClick(e) {
     case 'music-test': await musicTest(); break;
     case 'video-preview': await toggleVideoPreview(); break;
     case 'video-export': await exportVideo(t); break;
+    case 'load-player': {
+      const m = parseMusicLink(d.video.link); const slot = $('#player-slot');
+      if (m && slot) slot.innerHTML = `<iframe class="player" src="${esc(m.embed)}" title="${m.label} player" allow="autoplay; encrypted-media" loading="lazy" style="width:100%;height:${m.kind === 'spotify' ? 152 : 220}px;border:0;border-radius:12px;margin-top:10px"></iframe>`;
+      break;
+    }
     case 'site-preview': await sitePreview(); break;
     case 'share-image': await shareImage(t); break;
     case 'copy-wording': (await copyText($('#wa-text')?.value || invitationText(d))) ? toast('Invitation text copied.', 'ok') : toast('Copy failed.', 'err'); break;
@@ -742,9 +891,9 @@ async function onClick(e) {
     }
     case 'goto-error': {
       const k = Object.keys(ui.errors)[0];
-      const step = /^events/.test(k) ? 5 : /^rsvp/.test(k) ? 4 : /^site/.test(k) ? 9 : 3;
-      if (step === 5) { const m = k.match(/^events\.(\d+)/); ui.openEvent = D().events[+m[1]]?.id; }
-      ui.step = step; renderPanel(); $('#panel [aria-invalid="true"]')?.focus(); break;
+      const step = /^events/.test(k) ? 3 : /^site/.test(k) ? 5 : 2;
+      if (step === 3) { const m = k.match(/^events\.(\d+)/); ui.openEvent = D().events[+m[1]]?.id; }
+      ui.step = step; renderPanel(); const bad = $('#panel [aria-invalid="true"]'); bad?.closest('details')?.setAttribute('open', ''); bad?.focus(); break;
     }
   }
 }
@@ -761,6 +910,11 @@ async function onChange(e) {
   if (el.id === 'dl-page') { ui.page = el.value === 'sd' ? 'sd' : +el.value; renderTabs(); schedulePreview(); return; }
   if (el.id === 'qr-target') { drawQRBox(); return; }
   if (el.dataset.upload) return handleUpload(el);
+  if (el.dataset.vstyle) {
+    const pr = VIDEO_PRESETS[el.dataset.vstyle];
+    store.update(x => { const keepTrack = x.video.track === 'upload'; Object.assign(x.video, pr, { style: el.dataset.vstyle }); if (keepTrack) x.video.track = 'upload'; });
+    renderPanel({ keepScroll: true }); toast(`${el.closest('label').querySelector('strong').textContent} style applied. You can still change anything below.`, 'ok'); return;
+  }
   onInput(e);
 }
 
@@ -833,7 +987,7 @@ async function musicTest() {
   try {
     const buf = await musicBuffer(30);
     if (!buf) { toast('Upload an audio file first.', 'err'); return; }
-    playPreview(buf, { volume: D().video.volume, start: D().video.track === 'upload' ? D().video.start : 0, onEnd: () => ui.step === 7 && renderPanel({ keepScroll: true }) });
+    playPreview(buf, { volume: D().video.volume, start: D().video.track === 'upload' ? D().video.start : 0, onEnd: () => ui.step === 4 && renderPanel({ keepScroll: true }) });
     renderPanel({ keepScroll: true });
   } catch (e) { toast(e.message || 'Could not play audio.', 'err'); }
 }
@@ -863,7 +1017,7 @@ async function toggleVideoPreview() {
   const loop = () => {
     if (!ui.playing) return;
     const t = (performance.now() - t0) / 1000;
-    if (t >= tl.total) { stopVideo(); if (ui.step === 7) renderPanel({ keepScroll: true }); return; }
+    if (t >= tl.total) { stopVideo(); if (ui.step === 4) renderPanel({ keepScroll: true }); return; }
     tl.draw(ctx, t);
     $('#stage-note').textContent = `Video preview · ${t.toFixed(1)} / ${tl.total.toFixed(0)} s (reduced resolution)`;
     ui.playing.raf = requestAnimationFrame(loop);
@@ -875,46 +1029,72 @@ async function exportVideo(btn) {
   if (ui.exportJob) { ui.exportJob.cancelled = true; return; }
   stopVideo();
   const d = structuredClone(D());
-  const box = $('#video-progress');
+  const box = (btn.dataset.target && $('#' + btn.dataset.target)) || $('#video-progress');
   const job = { cancelled: false };
   ui.exportJob = job;
-  btn.innerHTML = `${icon('x')}Cancel export`;
-  box.innerHTML = `<div class="progress" role="progressbar" aria-label="Video export progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><p class="muted" id="vp-text" style="margin-top:6px">Preparing music…</p>`;
-  const bar = box.querySelector('.progress'), fill = bar.querySelector('i'), txt = box.querySelector('#vp-text');
+  const oldLabel = btn.innerHTML;
+  btn.innerHTML = `${icon('x')}Cancel`;
+  box.innerHTML = `<div class="progress" role="progressbar" aria-label="Video export progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><p class="muted vp-text" style="margin-top:6px">Preparing music…</p>`;
+  const bar = box.querySelector('.progress'), fill = bar.querySelector('i'), txt = box.querySelector('.vp-text');
   try {
     const { total } = new Timeline(d, 10, 10);
     const audio = await getMusic(d, getUploadBlob, total + 2);
-    if (d.video.track === 'upload' && !audio) throw new Error('The uploaded audio could not be found. Please upload it again.');
-    txt.textContent = 'Recording… keep this tab open and visible.';
-    const res = await recordVideo(d, { audio, signal: job, onProgress: p => { fill.style.width = (p * 100).toFixed(1) + '%'; bar.setAttribute('aria-valuenow', Math.round(p * 100)); } });
-    if (!res) { txt.textContent = 'Export cancelled.'; return; }
-    if (!res.blob.size) throw new Error('The recording came out empty. Please try again with the tab in the foreground.');
+    if (d.video.track === 'upload' && !audio) throw new Error('The uploaded song could not be found. Please choose the file again.');
+    txt.textContent = 'Creating your video…';
+    const res = await exportBestVideo(d, { audio, signal: job, onProgress: p => { fill.style.width = (p * 100).toFixed(1) + '%'; bar.setAttribute('aria-valuenow', Math.round(p * 100)); txt.textContent = `Creating your video… ${Math.round(p * 100)}%`; } });
+    if (!res) { box.innerHTML = '<p class="muted">Video export cancelled.</p>'; return; }
+    if (!res.blob.size) throw new Error('The video came out empty. Please try again with this tab in the foreground.');
     const name = `${slug(EX.fileBase(d))}-video-${d.video.format}.${res.ext}`;
     downloadBlob(res.blob, name);
     ui.lastVideo = { blob: res.blob, name };
-    fill.style.width = '100%';
+    const opusMp4 = res.ext === 'mp4' && audio && (res.engine === 'webcodecs' ? !res.aac : !/mp4a/i.test(res.codec || ''));
     box.innerHTML = `<p class="dl-result">✓ ${esc(name)} · ${res.w}×${res.h} · ${Math.round(res.duration)} s · ${fmtBytes(res.blob.size)}</p>
-      ${res.ext === 'mp4' && audio && !/mp4a/i.test(res.codec || '') ? '<p class="muted">Note: your browser stored the music as Opus audio inside the MP4. Most Android phones and WhatsApp play it, but some iPhones may play the video silently. Recording in Safari or desktop Chrome/Edge with AAC support avoids this.</p>' : ''}
-      ${res.ext === 'webm' ? '<p class="muted">Saved as WebM, which your browser supports. WhatsApp may not play WebM, so convert it to MP4 or record in Chrome, Edge or Safari.</p>' : ''}
-      <div class="inline" style="margin-top:8px"><button class="btn btn-outline btn-sm" type="button" id="share-video">${icon('share')}Share video</button></div>`;
-    $('#share-video').onclick = async () => {
+      ${opusMp4 ? '<p class="muted">Your browser saved the music as Opus audio inside the MP4. Android and WhatsApp play it, but a few iPhones may play it silently. Chrome or Edge on Windows/Mac, or Safari, save AAC audio, which plays everywhere.</p>' : ''}
+      ${res.ext === 'webm' ? '<p class="muted">Your browser can only make WebM videos. For MP4, open this site in Chrome, Edge or Safari.</p>' : ''}
+      <div class="inline" style="margin-top:8px"><button class="btn btn-outline btn-sm share-video" type="button">${icon('share')}Share video</button></div>`;
+    box.querySelector('.share-video').onclick = async () => {
       const r = await shareFile(res.blob, name, invitationText(D()));
-      if (!r.ok && r.reason === 'unsupported') toast('Sharing video files is not supported here. Attach the downloaded file in WhatsApp or Instagram.', 'info', 6000);
+      if (!r.ok && r.reason === 'unsupported') toast('This browser cannot share video files directly. Attach the downloaded file in WhatsApp or Instagram.', 'info', 6000);
     };
     toast('Video ready and downloaded.', 'ok');
   } catch (e) {
-    box.innerHTML = `<p class="err-msg">Export failed: ${esc(e.message || e)}</p>`;
+    console.error(e);
+    box.innerHTML = `<p class="err-msg">Video export failed: ${esc(e.message || e)}</p>`;
     toast('Video export failed. See the message under the button.', 'err');
   } finally {
     ui.exportJob = null;
-    btn.innerHTML = `${icon('film')}Export video${videoSupport().mime ? ` (${videoSupport().mime.ext.toUpperCase()})` : ''}`;
+    btn.innerHTML = oldLabel;
   }
+}
+
+async function quickDownload(kind, btn) {
+  const d = structuredClone(D());
+  const old = btn.innerHTML; btn.disabled = true; btn.textContent = 'Working…';
+  const resEl = btn.closest('.dl-tile')?.querySelector('.dl-result');
+  try {
+    if (kind === 'png' || kind === 'jpg') {
+      const out = await EX.exportImage(d, currentPage(), ui.fmt, kind);
+      downloadBlob(out.blob, out.name);
+      if (resEl) resEl.textContent = `✓ ${currentPage().label} · ${out.w}×${out.h} · ${fmtBytes(out.blob.size)}`;
+    } else if (kind === 'pdf') {
+      const size = FORMATS[ui.fmt]?.mm ? ui.fmt : d.print.size;
+      const pages = pageList(d, size);
+      const out = await EX.exportPDF(d, pages, size, { bleed: d.print.bleed, onProgress: p => (btn.textContent = `${Math.round(p * 100)}%`) });
+      downloadBlob(out.blob, out.name);
+      if (resEl) resEl.textContent = `✓ ${out.pages} pages · ${FORMATS[size].label} · ${fmtBytes(out.blob.size)}`;
+    } else if (kind === 'all') {
+      const out = await EX.exportEverything(d, d.print.size, p => (btn.textContent = `Preparing… ${Math.round(p * 100)}%`));
+      downloadBlob(out.blob, out.name);
+      toast(`Downloaded ${out.count} files in one ZIP (${fmtBytes(out.blob.size)}).`, 'ok', 6000);
+    }
+  } catch (e) { console.error(e); toast(`Could not create the file: ${e.message || e}`, 'err', 7000); }
+  finally { btn.disabled = false; btn.innerHTML = old; }
 }
 
 // ---------- downloads ----------
 async function doDownload(kind, btn) {
   const d = structuredClone(D());
-  const res = btn.closest('.dl-item')?.querySelector('.dl-result');
+  const res = btn.closest('.dl-item, .dl-tile')?.querySelector('.dl-result');
   const old = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = 'Working…';
   if (res) res.textContent = '';
@@ -1053,7 +1233,7 @@ export async function openStudio(params = {}) {
   if (d !== store.get()) { store.set(d); ui.audioBuf = null; ui.audioDur = 0; ui.page = 0; }
   $('#design-name').value = D().name;
   $$('.seg [data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === (D().style.mode || 'easy')));
-  ui.step = params.step ? Math.max(1, Math.min(9, +params.step)) : ui.step;
+  ui.step = params.step ? Math.max(1, Math.min(LAST, +params.step)) : ui.step;
   ui.visited.add(ui.step);
   $('#stage-format').value = ui.fmt;
   renderPanel(); renderTabs();
@@ -1073,14 +1253,14 @@ export function migrate(d) {
 function init() {
   initialised = true;
   const panel = $('#panel');
-  panel.addEventListener('input', e => { if (e.target.id === 'mini-search') { const q = e.target.value.toLowerCase(); $$('#mini-grid .mini').forEach(b => (b.hidden = q && !b.dataset.search.includes(q))); return; } if (e.target.type !== 'file' && !e.target.dataset.preset && e.target.id !== 'culture-pick' && e.target.type !== 'radio' && e.target.type !== 'checkbox' && e.target.tagName !== 'SELECT') onInput(e); else if (e.target.id === 'wa-text') updateWa(); });
+  panel.addEventListener('input', e => { if (e.target.id === 'mini-search') { applyTplFilter(); return; } if (e.target.type !== 'file' && !e.target.dataset.preset && e.target.id !== 'culture-pick' && e.target.type !== 'radio' && e.target.type !== 'checkbox' && e.target.tagName !== 'SELECT') onInput(e); else if (e.target.id === 'wa-text') updateWa(); });
   panel.addEventListener('change', onChange);
   panel.addEventListener('click', onClick);
   $('#stepper').addEventListener('click', e => { const b = e.target.closest('[data-step]'); if (b) goStep(+b.dataset.step, { force: true }); });
   $('#page-tabs').addEventListener('click', e => { const b = e.target.closest('[data-page]'); if (!b) return; stopVideo(); ui.page = b.dataset.page === 'sd' ? 'sd' : +b.dataset.page; renderTabs(); schedulePreview(); });
   const fs = $('#stage-format');
   fs.innerHTML = Object.entries(FORMATS).map(([k, f]) => `<option value="${k}">${esc(f.label)}</option>`).join('');
-  fs.addEventListener('change', () => { stopVideo(); ui.fmt = fs.value; renderTabs(); schedulePreview(); if (ui.step === 8 || ui.step === 9) renderPanel({ keepScroll: true }); });
+  fs.addEventListener('change', () => { stopVideo(); ui.fmt = fs.value; renderTabs(); schedulePreview(); if (ui.step === LAST) renderPanel({ keepScroll: true }); });
   $('#btn-undo').onclick = () => { store.undo(); renderPanel({ keepScroll: true }); };
   $('#btn-redo').onclick = () => { store.redo(); renderPanel({ keepScroll: true }); };
   $('#btn-save').onclick = () => saveNow(true);
@@ -1096,7 +1276,7 @@ function init() {
     schedulePreview(); autosave();
     $('#btn-undo').disabled = !store.canUndo(); $('#btn-redo').disabled = !store.canRedo();
     $('#save-state').textContent = 'Unsaved changes…'; $('#save-state').classList.remove('ok');
-    if (ui.step === 9) updateWaDebounced();
+    if (ui.step === LAST) updateWaDebounced();
     fontsDebounced();
   });
   setAssetListener(() => schedulePreview());

@@ -1,3 +1,4 @@
+import { loadScript } from './ui.js';
 // Video invitation engine: scene timeline drawn with the card renderer, plus
 // particles and transitions. Recording uses MediaRecorder (MP4 where supported, else WebM).
 import { renderPage, ensureFonts, preloadImages, paletteFor, templateById } from './render/card.js';
@@ -16,6 +17,8 @@ export function buildScenes(design) {
   const v = design.video;
   const long = v.length === 'long';
   const scenes = [];
+  const inv = design.wording?.invocation;
+  if (v.verseIntro !== false && inv && inv !== 'none' && design.show?.invocation !== false) scenes.push({ page: { kind: 'verse' }, dur: long ? 6 : 4.5 });
   scenes.push({ page: { kind: 'cover' }, dur: long ? 8 : 6.5 });
   if (v.timeline !== false && design.events.length) {
     if (long) design.events.forEach((e, i) => scenes.push({ page: { kind: 'event', index: i }, dur: 4.5 }));
@@ -196,4 +199,122 @@ export async function recordVideo(design, { audio, onProgress, signal }) {
   if (signal?.cancelled) return null;
   const type = sup.mime.mime.split(';')[0];
   return { blob: new Blob(chunks, { type }), ext: sup.mime.ext, mime: type, codec: sup.mime.mime + ' ' + (rec.mimeType || ''), w: W, h: H, duration: tl.total };
+}
+
+// ===================== WebCodecs MP4 encoder (faster than real time) =====================
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function pickVideoCodec(W, H) {
+  if (!window.VideoEncoder) return null;
+  for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.640033', 'avc1.42001f']) {
+    try {
+      const cfg = { codec, width: W, height: H, bitrate: 6_000_000, framerate: 30 };
+      const r = await VideoEncoder.isConfigSupported(cfg);
+      if (r.supported) return cfg;
+    } catch { }
+  }
+  return null;
+}
+async function pickAudioCodec() {
+  if (!window.AudioEncoder) return null;
+  for (const [codec, mux, sampleRate] of [['mp4a.40.2', 'aac', 48000], ['mp4a.40.2', 'aac', 44100], ['opus', 'opus', 48000]]) {
+    try {
+      const cfg = { codec, sampleRate, numberOfChannels: 2, bitrate: 160_000 };
+      const r = await AudioEncoder.isConfigSupported(cfg);
+      if (r.supported) return { cfg, mux };
+    } catch { }
+  }
+  return null;
+}
+
+/** Mix the chosen music to the video length with volume, start offset, looping and fades. */
+export async function mixAudio(buffer, total, { volume = 0.8, start = 0, sampleRate = 48000 } = {}) {
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const ctx = new OAC(2, Math.ceil(total * sampleRate), sampleRate);
+  const src = ctx.createBufferSource(); src.buffer = buffer;
+  const off = Math.min(start, Math.max(0, buffer.duration - 1));
+  if (buffer.duration - off < total) { src.loop = true; src.loopStart = off; src.loopEnd = buffer.duration; }
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, 0); g.gain.linearRampToValueAtTime(volume, 0.8);
+  g.gain.setValueAtTime(volume, Math.max(0.9, total - 1.6)); g.gain.linearRampToValueAtTime(0, total);
+  src.connect(g); g.connect(ctx.destination); src.start(0, off);
+  return ctx.startRendering();
+}
+
+export async function mp4Support(design) {
+  const fmt = VIDEO_FORMATS[design.video.format] || VIDEO_FORMATS.story;
+  const v = await pickVideoCodec(fmt.w, fmt.h);
+  if (!v) return null;
+  const a = await pickAudioCodec();
+  return { video: v, audio: a };
+}
+
+/** Encode the video invitation to a real MP4 (H.264 + AAC/Opus) with WebCodecs. Returns null when unsupported. */
+export async function encodeMP4(design, { audio, onProgress, signal }) {
+  const fmt = VIDEO_FORMATS[design.video.format] || VIDEO_FORMATS.story;
+  const vcfg = await pickVideoCodec(fmt.w, fmt.h);
+  if (!vcfg) return null;
+  const acodec = audio ? await pickAudioCodec() : null;
+  const Mux = await loadScript('vendor/mp4-muxer.js', 'Mp4Muxer');
+  await ensureFonts(design); await preloadImages(design);
+  const W = fmt.w, H = fmt.h, FPS = 30;
+  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const tl = new Timeline(design, W, H);
+  const total = tl.total;
+  const muxer = new Mux.Muxer({
+    target: new Mux.ArrayBufferTarget(),
+    video: { codec: 'avc', width: W, height: H, frameRate: FPS },
+    audio: acodec ? { codec: acodec.mux, numberOfChannels: 2, sampleRate: acodec.cfg.sampleRate } : undefined,
+    fastStart: 'in-memory',
+    firstTimestampBehavior: 'offset',
+  });
+  let failure = null;
+  const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => (failure = e) });
+  venc.configure({ ...vcfg, avc: { format: 'avc' } });
+
+  // audio first (fast), so a failure there falls back cleanly
+  if (acodec) {
+    const mixed = await mixAudio(audio, total, { volume: design.video.volume ?? 0.8, start: design.video.track === 'upload' ? (design.video.start || 0) : 0, sampleRate: acodec.cfg.sampleRate });
+    const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: e => (failure = e) });
+    aenc.configure(acodec.cfg);
+    const L = mixed.getChannelData(0), Rch = mixed.getChannelData(1), N = 1024;
+    for (let i = 0; i < mixed.length; i += N) {
+      const n = Math.min(N, mixed.length - i);
+      const data = new Float32Array(n * 2); data.set(L.subarray(i, i + n), 0); data.set(Rch.subarray(i, i + n), n);
+      const ad = new AudioData({ format: 'f32-planar', sampleRate: mixed.sampleRate, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(i / mixed.sampleRate * 1e6), data });
+      aenc.encode(ad); ad.close();
+      if (aenc.encodeQueueSize > 50) await sleep(1);
+    }
+    await aenc.flush(); aenc.close();
+  }
+  tl.scenes.forEach((_, i) => tl.sceneCanvas(i, 1));
+  const frames = Math.ceil(total * FPS);
+  for (let i = 0; i < frames; i++) {
+    if (signal?.cancelled) { try { venc.close(); } catch { } return { cancelled: true }; }
+    if (failure) throw failure;
+    tl.draw(ctx, i / FPS);
+    const frame = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+    venc.encode(frame, { keyFrame: i % (FPS * 2) === 0 });
+    frame.close();
+    while (venc.encodeQueueSize > 6) await sleep(2);
+    if (i % 6 === 0) { onProgress?.(i / frames); await sleep(0); }
+  }
+  await venc.flush(); venc.close();
+  if (failure) throw failure;
+  muxer.finalize();
+  const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+  return { blob, ext: 'mp4', mime: 'video/mp4', codec: `${vcfg.codec}${acodec ? ' + ' + acodec.cfg.codec : ''}`, aac: acodec?.mux === 'aac', w: W, h: H, duration: total, engine: 'webcodecs' };
+}
+
+/** Best available export: WebCodecs MP4 → MediaRecorder (MP4/WebM). */
+export async function exportBestVideo(design, opts) {
+  try {
+    const r = await encodeMP4(design, opts);
+    if (r?.cancelled) return null;
+    if (r) return r;
+  } catch (e) { console.warn('WebCodecs export failed, falling back to MediaRecorder', e); }
+  const r = await recordVideo(design, opts);
+  return r && { ...r, engine: 'recorder' };
 }
