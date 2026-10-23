@@ -88,7 +88,7 @@ export async function buildMicrosite(design, { mode = 'zip', getUploadBlob } = {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(t(first[0]))} &amp; ${esc(t(first[1]))} — Wedding</title>
-<meta name="description" content="${esc(`${t(B)} & ${t(G)} are getting married${d.wedding.date ? ' on ' + fmtDate(d.wedding.date, 'en') : ''}. Join us!`)}">
+<meta name="description" content="${esc(`${t(first[0])} & ${t(first[1])} are getting married${d.wedding.date ? ' on ' + fmtDate(d.wedding.date, 'en') : ''}. Join us!`)}">
 <meta property="og:title" content="${esc(t(first[0]))} &amp; ${esc(t(first[1]))} — Wedding Invitation">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="${pal.bg}">
@@ -148,7 +148,7 @@ footer{padding:48px 16px 80px;text-align:center;color:var(--ink2)}
 <header class="hero">
   <div>
     ${d.show.invocation && inv ? `<p class="inv">${esc(inv)}</p>` : ''}
-    ${heroPhoto ? `<img class="photo" src="${esc(heroPhoto)}" alt="${esc(`${t(B)} and ${t(G)}`)}">` : ''}
+    ${heroPhoto ? `<img class="photo" src="${esc(heroPhoto)}" alt="${esc(`${t(first[0])} and ${t(first[1])}`)}">` : ''}
     <p class="kicker">${esc(t(d.wording.headline) || 'Together with their families')}</p>
     <h1>${esc(t(first[0]))}${t2(first[0])}<span class="amp">&amp;</span>${esc(t(first[1]))}${t2(first[1])}</h1>
     ${d.wedding.date ? `<p class="date">${esc(fmtDate(d.wedding.date, lg))}</p>` : ''}
@@ -191,7 +191,7 @@ ${linked ? `<button class="music" id="embed-btn" type="button" data-src="${esc(l
 const EV=${JSON.stringify(evJson).replace(/</g, '\\u003c')};
 const WED=${JSON.stringify({ date: d.wedding.date, time: d.wedding.time }).replace(/</g, '\\u003c')};
 const PHONE=${JSON.stringify(rsvpPhone)};
-const COUPLE=${JSON.stringify(`${t(B)} & ${t(G)}`).replace(/</g, '\\u003c')};
+const COUPLE=${JSON.stringify(`${t(first[0])} & ${t(first[1])}`).replace(/</g, '\\u003c')};
 (function(){
   if(WED.date&&document.getElementById('count')){
     const target=new Date(WED.date+'T'+(WED.time||'00:00')+':00');
@@ -236,7 +236,7 @@ const COUPLE=${JSON.stringify(`${t(B)} & ${t(G)}`).replace(/</g, '\\u003c')};
   for (const f of fonts.files) {
     try { zip.file(`fonts/${f}`, await (await fetch(`assets/fonts/${f}`)).blob()); } catch { }
   }
-  zip.file('README.txt', `Your wedding website — ${t(B)} & ${t(G)}
+  zip.file('README.txt', `Your wedding website — ${t(first[0])} & ${t(first[1])}
 ==========================================
 
 This folder is a complete static website. Open index.html in a browser to preview it.

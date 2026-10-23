@@ -43,7 +43,7 @@ export function profileFromDesign(d, base = null) {
   ['brideParents', 'groomParents', 'brideGrand', 'groomGrand', 'familyNames', 'hosts'].forEach(k => (p.family[k] = pickL(d.family[k])));
   p.wedding = { date: d.wedding.date || '', time: d.wedding.time || '', venue: d.wedding.venue || '', address: d.wedding.address || '', maps: d.wedding.maps || '' };
   p.rsvp = { name: d.rsvp.name || '', phone: d.rsvp.phone || '', email: d.rsvp.email || '' };
-  p.events = (d.events || []).map(e => ({ preset: e.preset, name: pickL(e.name), date: e.date, start: e.start, end: e.end || '', venue: e.venue || '', address: e.address || '', maps: e.maps || '', dress: e.dress || '', msg: pickL(e.msg) }));
+  p.events = (d.events || []).map(e => ({ preset: e.preset, name: pickL(e.name), date: e.date, start: e.start, end: e.end || '', venue: e.venue || '', address: e.address || '', maps: e.maps || '', dress: e.dress || '', msg: pickL(e.msg), tithi: e.tithi || '', note: e.note || '' }));
   return p;
 }
 /** Fill a design with a profile. Empty profile fields never wipe out the design's values. */
