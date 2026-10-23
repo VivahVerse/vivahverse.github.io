@@ -77,9 +77,10 @@ scripts/
   state.js              Design model, defaults, page list, undo/redo store, formats
   i18n.js               Card labels, Indian date/time formatting (English & Hindi)
   render/card.js        Canvas renderer: layout engine with auto-fit text, frames, pages
+  render/reel.js        Cinematic reel videos: painted sacred scenes, deity symbols, timed text scenes
   render/motifs.js      Original ornaments: lotus, paisley, mandala, marigold, toran, diya, arches…
-  data/templates.js     73 template definitions + palettes + fonts (data-driven)
-  data/culture.js       22 traditions, 38 blessings/verses (incl. Ram Charit Manas & Vedic mantras), 45 function presets, wording
+  data/templates.js     95 template definitions + palettes + fonts (data-driven)
+  data/culture.js       26 traditions, 80 blessings/verses (Ram Charit Manas, Valmiki Ramayan, Vedic, Shiv, Krishna, Ganesh, Lakshmi…), 45 function presets, wording
   exporter.js           PNG / JPEG / PDF / ZIP
   video.js              Animated timeline + MediaRecorder export
   music.js              Original synthesised tracks, audio decoding, WAV encoder
@@ -106,7 +107,7 @@ Append an object to `TEMPLATES` in `scripts/data/templates.js`. Choose a palette
 
 ### Implemented in this static version
 - Home page with an animated hero, card mock-ups and a phone video preview (motion is disabled when *reduce motion* is on)
-- Template gallery: 73 original templates (60 suitable for Hindu weddings: traditional, devotional, folk-art, modern and trending) across Hindu (regional), Sikh, Muslim, Christian, Jain, Buddhist, Parsi and non-religious styles, with search, style chips, filters, sorting, "show more", a preview modal and an empty state
+- Template gallery: 95 original templates (82 suitable for Hindu weddings, incl. painted sacred-scene designs: traditional, devotional, folk-art, modern and trending) across Hindu (regional), Sikh, Muslim, Christian, Jain, Buddhist, Parsi and non-religious styles, with search, style chips, filters, sorting, "show more", a preview modal and an empty state
 - Simple 5-step editor (Choose design → Your details → Functions → Style & music → Download) with optional sections folded away, validation, free navigation and autosave
 - Couple and family details, all optional lines with show/hide, editable wording presets in English and Hindi
 - 22 tradition presets, 31 blessings and verses (Ram Charit Manas chaupais with meanings, shlokas, Sikh, Muslim, Christian KJV, Jain, Buddhist, Parsi) or your own, 45 function presets plus custom functions

@@ -1,7 +1,7 @@
 # Credits & licences
 
 ## Original to this project
-- **Invitation templates and ornaments.** The 73 templates and every motif (lotus, paisley, mandala, marigold toran and garland, mango leaves, kalash, peacock feathers, kolam, palm fronds, roses, domes, lanterns, fairy lights, dharma chakra, fish, Warli figures, chinar leaves, gopuram, shankha, art-deco fans, agni kund, dhanush, mandap, bindi, arches, diyas, bells, jaali, kasavu, phulkari, alpana, madhubani, gamosa, pattachitra, bandhani, leheriya, ikat, brocade and paithani borders) are drawn procedurally in `scripts/render/motifs.js` and `scripts/render/card.js`. No third-party artwork or stock images are used.
+- **Invitation templates and ornaments.** The 95 templates and every motif (lotus, paisley, mandala, marigold toran and garland, mango leaves, kalash, peacock feathers, kolam, palm fronds, roses, domes, lanterns, fairy lights, dharma chakra, fish, Warli figures, chinar leaves, gopuram, shankha, art-deco fans, agni kund, dhanush, mandap, bindi, trishul & damru, bansuri, painted ghats, Kailash, Vrindavan, Ayodhya, temple and palace scenes, arches, diyas, bells, jaali, kasavu, phulkari, alpana, madhubani, gamosa, pattachitra, bandhani, leheriya, ikat, brocade and paithani borders) are drawn procedurally in `scripts/render/motifs.js` and `scripts/render/card.js`. No third-party artwork or stock images are used.
 - **Music.** “Shehnai Dawn”, “Sitar Sandhya”, “Bansuri Breeze”, “Mehendi Bells”, “Dholki Nights”, “Royal Procession”, “Sufi Shaam”, “Piano Vows” and “Chapel Organ” are original compositions synthesised in the browser by `scripts/music.js`. You may use them in invitations made with this tool.
 - **Sample content.** All names, addresses and phone numbers are fictional.
 
