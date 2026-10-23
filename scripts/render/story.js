@@ -5,6 +5,39 @@ import * as WC from './watercolor.js';
 import { rng } from './motifs.js';
 import { invocationText } from '../state.js';
 import { fmtTime, parseDate, toDeva } from '../i18n.js';
+import { ART } from '../data/art.js';
+
+// realistic deity paintings used in the watercolour stories (loaded before painting)
+const DIVINE_ART = { 'divine-union': 'shiva-parvati-nandi', 'vrindavan-prem': 'krishna-radha', 'siya-ram-vivah': 'ram-darbar', 'rajwada-royal': 'gajalakshmi' };
+const artImgs = {};
+function loadArt(id) {
+  if (!id || !ART[id]) return Promise.resolve(null);
+  if (artImgs[id]) return Promise.resolve(artImgs[id]);
+  return new Promise(res => { const im = new Image(); im.onload = () => { artImgs[id] = im; res(im); }; im.onerror = () => res(null); im.src = ART[id].file; });
+}
+const useRealArt = st => st.deity !== 'figures';
+const DEITY_COSTUMES = ['shiva', 'krishna', 'ram'];
+function coupleCostume(tpl, st) { return useRealArt(st) && DEITY_COSTUMES.includes(tpl.costume) ? WC.COSTUMES.royal : WC.COSTUMES[tpl.costume]; }
+/** Paint a devotional painting into an arch, feathered into the watercolour around it. */
+function paintedArch(f, W, H, id) {
+  const im = artImgs[id], a = ART[id]; if (!im) return false;
+  const x = W * 0.1, y = H * 0.36, w = W * 0.8, h = H * 0.6;
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const sw = im.naturalWidth * (1 - a.crop[0] - a.crop[2]), sh = im.naturalHeight * (1 - a.crop[1] - a.crop[3]);
+  const k = Math.max(w / sw, h / sh), vw = w / k, vh = h / k;
+  const sx = im.naturalWidth * a.crop[0] + (sw - vw) * a.focus[0], sy = im.naturalHeight * a.crop[1] + (sh - vh) * Math.min(1, a.focus[1] * 0.6);
+  g.drawImage(im, sx, sy, vw, vh, x, y, w, h);
+  // arch mask with soft edges
+  const m = document.createElement('canvas'); m.width = W; m.height = H; const mg = m.getContext('2d');
+  mg.filter = `blur(${W / 45}px)`; mg.fillStyle = '#000';
+  mg.beginPath(); mg.moveTo(x + w * 0.04, y + h); mg.lineTo(x + w * 0.04, y + h * 0.3); mg.quadraticCurveTo(x + w * 0.04, y + h * 0.02, x + w / 2, y + h * 0.02); mg.quadraticCurveTo(x + w * 0.96, y + h * 0.02, x + w * 0.96, y + h * 0.3); mg.lineTo(x + w * 0.96, y + h); mg.closePath(); mg.fill();
+  g.globalCompositeOperation = 'destination-in'; g.drawImage(m, 0, 0);
+  f.drawImage(c, 0, 0);
+  // fine gold arch line
+  f.save(); f.strokeStyle = 'rgba(214,176,98,.85)'; f.lineWidth = Math.max(1, W / 260);
+  f.beginPath(); f.moveTo(x, y + h * 1.02); f.lineTo(x, y + h * 0.28); f.quadraticCurveTo(x, y - h * 0.02, x + w / 2, y - h * 0.02); f.quadraticCurveTo(x + w, y - h * 0.02, x + w, y + h * 0.28); f.lineTo(x + w, y + h * 1.02); f.stroke(); f.restore();
+  return true;
+}
 
 const clamp01 = t => Math.min(1, Math.max(0, t));
 const ease = t => { t = clamp01(t); return 1 - Math.pow(1 - t, 3); };
@@ -84,7 +117,7 @@ export function mainEventOf(design) {
 
 // ---------------- painted layers (cached) ----------------
 const cache = new Map();
-function layerKey(tpl, W, H, kind, st) { return [tpl.id, W, H, kind, st.bg, st.intensity, st.placement].join('|'); }
+function layerKey(tpl, W, H, kind, st) { return [tpl.id, W, H, kind, st.bg, st.intensity, st.placement, st.deity || 'painting', !!artImgs[DIVINE_ART[tpl.id]]].join('|'); }
 function newCanvas(W, H) { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; }
 function skyFor(tpl, st, which) {
   if (st.bg === 'parchment' && which === 'blue') return tpl.warm;
@@ -106,7 +139,7 @@ function paintOpen(tpl, st, W, H) {
   WC.water(c, W, H, hz, H * 0.8, { color: tpl.water, light: s.mid, seed: tpl.id + 'wo' });
   WC.steps(c, W, H, H * 0.8, { color: tpl.stone, seed: tpl.id + 'st' });
   const fg = newCanvas(W, H), f = fg.getContext('2d');
-  WC.seatedCouple(f, W * 0.5, H * 0.985, W * 0.98, WC.COSTUMES[tpl.costume], tpl.id + 'sc');
+  WC.seatedCouple(f, W * 0.5, H * 0.985, W * 0.98, coupleCostume(tpl, st), tpl.id + 'sc');
   return { bg, fg, water: [hz, H * 0.8] };
 }
 
@@ -188,7 +221,7 @@ function paintDivine(tpl, st, W, H) {
   WC.water(c, W, H, hz, H * 0.86, { color: night ? '#3E5C88' : WC.mix(tpl.water, s.top, 0.4), light: night ? '#8FA6C8' : '#E6EEF3', seed: tpl.id + 'wd' });
   WC.steps(c, W, H, H * 0.86, { color: night ? '#8C8AA0' : WC.mix(tpl.stone, '#8FA0B8', 0.35), seed: tpl.id + 'rk' });
   const fg = newCanvas(W, H), f = fg.getContext('2d');
-  WC.standingCouple(f, W * 0.5, H * 0.97, H * 0.44, WC.COSTUMES[tpl.costume], tpl.id + 'dv', { embrace: true });
+  if (!(useRealArt(st) && DIVINE_ART[tpl.id] && paintedArch(f, W, H, DIVINE_ART[tpl.id]))) WC.standingCouple(f, W * 0.5, H * 0.97, H * 0.44, WC.COSTUMES[tpl.costume], tpl.id + 'dv', { embrace: true });
   return { bg, fg, water: [hz, H * 0.86], night };
 }
 
@@ -207,7 +240,7 @@ function paintFarewell(tpl, st, W, H) {
   WC.paint(f, bank, tpl.stone, { edge: 0.3, seed: 'bank' + tpl.id, box: [0, H * 0.8, W, H * 0.2] });
   const lamps = [];
   [[0.06, 0.92, 1], [0.17, 0.9, 1], [0.94, 0.92, -1], [0.83, 0.9, -1]].forEach(([x, y, d], i) => lamps.push(WC.priest(f, W * x, H * y, H * 0.12, { robe: i % 2 ? WC.mix(tpl.robe, '#FFFFFF', 0.15) : tpl.robe, seed: 'pr' + i, facing: d })));
-  WC.standingCouple(f, W * 0.5, H * 0.97, H * 0.3, WC.COSTUMES[tpl.costume], tpl.id + 'fw');
+  WC.standingCouple(f, W * 0.5, H * 0.97, H * 0.3, coupleCostume(tpl, st), tpl.id + 'fw');
   return { bg, fg, lamps: lamps.map(([x, y]) => [x / W, y / H]), water: [hz, H] };
 }
 
@@ -231,6 +264,9 @@ function fontStr(fs, role, px, text) {
   switch (role) {
     case 'display': return d ? `${px}px "${fs.devaD}", "${fs.deva}"` : `${fs.dw} ${px}px "${fs.display}", serif`;
     case 'num': return `400 ${px}px "${fs.num || 'Playfair Display'}", serif`;
+    case 'heavy': return `${px}px "Rozha One", "${fs.devaD}", serif`;
+    case 'hand': return `${px}px "Amita", cursive`;
+    case 'handB': return `700 ${px}px "Amita", cursive`;
     case 'caps': return d ? `${px}px "${fs.deva}"` : `600 ${px}px "${fs.caps}", serif`;
     case 'capsL': return d ? `${px}px "${fs.deva}"` : `400 ${px}px "${fs.caps}", serif`;
     case 'script': return d ? `${px}px "${fs.devaD}", "${fs.deva}"` : `${px}px "${fs.script}", cursive`;
@@ -432,6 +468,8 @@ export class StoryTimeline {
       ctx.save(); ctx.fillStyle = `rgba(14,12,18,${d})`; ctx.fillRect(0, 0, W, H); ctx.restore();
       this.drawText(ctx, sc, local, false, true);
       const endF = clamp01((t - (this.total - 1.2)) / 1.2);
+      const cid = useRealArt(this.st) && DIVINE_ART[this.tpl.id]; const ca = cid && ART[cid];
+      if (ca && this.st.showCredit !== false) line(ctx, this.fs, `Painting: ${ca.title} — ${ca.artist} · ${ca.license}`, W / 2, H * 0.975, { role: 'body', size: W / 100 * 1.7, color: '#E8DCCB', alpha: 0.75, maxW: W * 0.92 });
       if (this.st.fade !== false && endF > 0) { ctx.save(); ctx.globalAlpha = easeIO(endF); ctx.fillStyle = this.st.endScreen === 'ivory' ? '#F8F0E2' : '#000'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
     }
     void last;
@@ -626,12 +664,16 @@ export class StoryTimeline {
 function hasDevaVerse(d) { const t = invocationText(d, 'hi'); return hasDeva(t); }
 
 export async function ensureStoryFonts(design) {
+  const tid = design.story?.template; if (DIVINE_ART[tid] && useRealArt(design.story)) await loadArt(DIVINE_ART[tid]);
   if (!document.fonts?.load) return;
   const fs = FONT_SETS[design.story?.fonts] || FONT_SETS.classic;
   const jobs = [
     `${fs.dw} 40px "${fs.display}"`, `500 40px "${fs.display}"`, `600 40px "${fs.caps}"`, `400 40px "${fs.caps}"`, `40px "${fs.script}"`, `italic 400 40px "${fs.italic}"`,
   ].map(f => document.fonts.load(f, 'Aa&'));
-  jobs.push(document.fonts.load(`40px "${fs.deva}"`, 'श्री गणेशाय नमः'), document.fonts.load(`40px "${fs.devaD}"`, 'विवाह'), document.fonts.load('400 40px "Playfair Display"', 'AB'));
+  jobs.push(document.fonts.load(`40px "${fs.deva}"`, 'श्री गणेशाय नमः'), document.fonts.load(`40px "${fs.devaD}"`, 'विवाह'), document.fonts.load('400 40px "Playfair Display"', 'AB'), document.fonts.load('40px "Rozha One"', 'AB शुभ'), document.fonts.load('40px "Amita"', 'Ab'), document.fonts.load('700 40px "Amita"', 'Ab'), document.fonts.load('40px "Great Vibes"', 'Ab'), document.fonts.load('600 40px "Cinzel"', 'AB'));
   await Promise.race([Promise.allSettled(jobs), new Promise(r => setTimeout(r, 4000))]);
 }
 export const devaDigits = toDeva;
+
+// shared with the realistic-art reel engine
+export { line, fontStr, rev, ease, easeIO, clamp01, dateParts, timePhrase, divider, monogram, firstGrapheme, hasDeva };
