@@ -613,6 +613,7 @@ export class StoryTimeline {
         y += v * 6;
         if (st.showVenue && it.venue) { line(ctx, fs, lg === 'hi' ? it.venue : it.venue.toUpperCase(), cx, y, { role: 'capsL', size: v * 2.9, color: C.dark, alpha: rev(local, base + 1.1), maxW, align: al, ls: 0.12 }); y += v * 4.4; }
         if (st.showVenue && it.address && n < 3) { line(ctx, fs, it.address, cx, y, { role: 'italic', size: v * 2.8, color: C.dark, alpha: rev(local, base + 1.3) * 0.9, maxW, align: al }); y += v * 4; }
+        if (it.tithi && n < 3) { line(ctx, fs, it.tithi, cx, y, { role: hasDeva(it.tithi) ? 'deva' : 'italic', size: v * 3, color: C.main, alpha: rev(local, base + 1.4) * 0.95, maxW, align: al }); y += v * 4.4; }
         if (it.dress && n < 3) { line(ctx, fs, (lg === 'hi' ? 'वेशभूषा: ' : 'Dress code: ') + it.dress, cx, y, { role: 'italic', size: v * 2.7, color: C.main, alpha: rev(local, base + 1.5) * 0.9, maxW, align: al }); y += v * 4; }
         return y;
       };
@@ -649,6 +650,8 @@ export class StoryTimeline {
       y += u * 5;
       const venue = e?.venue || this.design.wedding.venue;
       if (st.showVenue && venue) line(ctx, fs, venue, cx, y, { role: 'italic', size: u * 3.4, color: C.light, alpha: rev(local, 3.6), maxW, align: al, shadow: 'rgba(20,30,60,.4)' });
+      if (e?.tithi) { y += u * 4.6; line(ctx, fs, e.tithi, cx, y, { role: hasDeva(e.tithi) ? 'deva' : 'italic', size: u * 3.2, color: C.light, alpha: rev(local, 3.9), maxW, align: al, shadow: 'rgba(20,30,60,.4)' }); }
+      if (e?.note) { y += u * 4.6; line(ctx, fs, e.note, cx, y, { role: 'italic', size: u * 2.9, color: C.light, alpha: rev(local, 4.2), maxW, align: al, shadow: 'rgba(20,30,60,.4)' }); }
     } else if (k === 'bless' || k === 'closing') {
       const base = k === 'bless' ? 0.6 : -10;
       let y = H * 0.34;

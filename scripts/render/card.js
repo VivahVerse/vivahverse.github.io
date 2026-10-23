@@ -243,7 +243,7 @@ function buildEvents(design, tpl, page) {
   const B = [];
   B.push(...multi(design, { en: L('en', 'functions'), hi: L('hi', 'functions') }, 'display', 3.6, { color: 'accent', upper: design.lang !== 'hi', ls: 0.12, gap: 0.6, prio: 1 }));
   const c = design.couple;
-  const nm = textOf(design, { en: `${c.bride.en} & ${c.groom.en}`, hi: `${c.bride.hi || c.bride.en} & ${c.groom.hi || c.groom.en}` });
+  const nm = textOf(design, pairNames(c));
   if (nm[0]) B.push(T(nm[0].t, tpl.names === 'script' && nm[0].lang === 'en' ? 'script' : (nm[0].lang === 'hi' ? 'deva' : 'display'), 4.8, { color: 'ink', gap: 0.6, prio: 3 }));
   B.push({ k: 'divider', gap: 1.6, gapTop: 0.4, prio: 9 });
   const list = design.events.slice(page.from ?? 0, page.to ?? design.events.length);
@@ -263,7 +263,7 @@ function buildEvent(design, tpl, e) {
     if (t && t.length < 50) B.push(T(t, isDeva(t) ? 'deva' : 'display', t.length < 4 ? 4.5 : 2.3, { color: 'accent', gap: 1.2, prio: 6 }));
   }
   if (e.photo?.src) B.push({ k: 'photo', photo: e.photo, size: 20, gap: 1.6, prio: 5 });
-  const nm = textOf(design, { en: `${c.bride.en} & ${c.groom.en}`, hi: `${c.bride.hi || c.bride.en} & ${c.groom.hi || c.groom.en}` })[0];
+  const nm = textOf(design, pairNames(c))[0];
   if (nm) B.push(T(nm.t, nm.lang === 'hi' ? 'deva' : 'display', 3.6, { color: 'ink', ls: nm.lang === 'en' ? 0.08 : 0, upper: nm.lang === 'en' && tpl.names === 'caps', gap: 0.4, prio: 2 }));
   B.push(...multi(design, { en: L('en', 'inviteTo'), hi: L('hi', 'inviteTo') }, 'body', 2.4, { italic: true, color: 'ink2', gap: 1, prio: 6 }));
   B.push(...eventBlocks(design, e, false));
@@ -299,7 +299,7 @@ function buildSaveDate(design, tpl) {
   B.push(...multi(design, { en: L('en', 'saveTheDate'), hi: L('hi', 'saveTheDate') }, 'script', 9, { color: 'accent', gap: 1.4, prio: 0 }).map(b => b.role === 'deva' ? { ...b, size: 5 } : b));
   if (design.photos.couple?.src && design.show.photo) B.push({ k: 'photo', photo: design.photos.couple, size: 26, gap: 2, prio: 4 });
   const c = design.couple;
-  const nm = textOf(design, { en: `${c.bride.en} & ${c.groom.en}`, hi: `${c.bride.hi || c.bride.en} & ${c.groom.hi || c.groom.en}` });
+  const nm = textOf(design, pairNames(c));
   nm.forEach(x => B.push(T(x.lang === 'en' ? x.t.toUpperCase() : x.t, x.lang === 'hi' ? 'deva' : 'display', x.second ? 3.4 : 4.6, { ls: x.lang === 'en' ? 0.14 : 0, gap: 0.6, fitWidth: true, prio: 0 })));
   B.push({ k: 'divider', gap: 1.6, gapTop: 1, prio: 6 });
   const d = design.wedding.date;
@@ -321,11 +321,15 @@ function buildVerse(design, tpl) {
   B.push({ k: 'divider', gap: 2, prio: 3 });
   B.push(...multi(design, { en: 'Shubh Vivah', hi: '॥ शुभ विवाह ॥' }, 'display', 3.2, { color: 'ink2', upper: design.lang !== 'hi', ls: 0.2, gap: 1, prio: 2 }));
   const c = design.couple;
-  const nm = textOf(design, { en: `${c.bride.en} & ${c.groom.en}`, hi: `${c.bride.hi || c.bride.en} & ${c.groom.hi || c.groom.en}` })[0];
+  const nm = textOf(design, pairNames(c))[0];
   if (nm) B.push(T(nm.t, nm.lang === 'hi' ? 'deva' : (tpl.names === 'script' ? 'script' : 'display'), 6, { color: 'ink', prio: 1 }));
   return B;
 }
 
+function pairNames(c) {
+  const [a, b] = c.order === 'groom' ? [c.groom, c.bride] : [c.bride, c.groom];
+  return { en: `${a.en} & ${b.en}`, hi: `${a.hi || a.en} & ${b.hi || b.en}` };
+}
 export function buildBlocks(design, tpl, page) {
   switch (page.kind) {
     case 'verse': return buildVerse(design, tpl);
