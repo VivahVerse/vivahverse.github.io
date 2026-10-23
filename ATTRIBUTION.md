@@ -6,6 +6,23 @@
 - **Music.** “Shehnai Dawn”, “Sitar Sandhya”, “Bansuri Breeze”, “Mehendi Bells”, “Dholki Nights”, “Royal Procession”, “Sufi Shaam”, “Piano Vows” and “Chapel Organ” are original compositions synthesised in the browser by `scripts/music.js`. You may use them in invitations made with this tool.
 - **Sample content.** All names, addresses and phone numbers are fictional.
 
+## Paintings (bundled in `assets/art/`, from Wikimedia Commons)
+Raja Ravi Varma (1848–1906) died more than 100 years ago, so his paintings are in the public domain. The Wellcome Collection scans are licensed CC BY 4.0 and must be credited, which the reels do automatically on their last frame.
+| File | Work | Licence |
+|---|---|---|
+| rv-shiva-parvati-nandi.jpg | Shiva and Parvati with Nandi, oleograph by Raja Ravi Varma | Public domain |
+| rv-shiva-parvati-ganesha.jpg | Shiva, Parvati and Ganesha on Nandi, Raja Ravi Varma | Public domain |
+| rv-kailash-family.jpg | Shiva, Parvati and Ganesha enthroned on Mount Kailas, Ravi Varma Press chromolithograph, Wellcome Collection | CC BY 4.0 |
+| rv-krishna-radha.jpg | Krishna embracing Radha, chromolithograph by R. Varma, Wellcome Collection | CC BY 4.0 |
+| rv-sita-swayamvar.jpg | Rama breaking the bow to win Sita, Raja Ravi Varma | Public domain |
+| rv-ram-darbar.jpg | Ram Panchayatan, Raja Ravi Varma (lithograph) | Public domain |
+| rv-gajalakshmi.jpg | Gajalakshmi with Saraswati, Raja Ravi Varma | Public domain |
+| rv-lakshmi.jpg | Goddess Lakshmi (1896), Raja Ravi Varma | Public domain |
+
+Source pages are linked in `scripts/data/art.js`. Images were resized (maximum 1800 px).
+
+The six realistic reel templates were *inspired by* viral Instagram invitation reels (scene ideas such as a messenger carrying the card to Kailash, carved doors opening onto a red-and-gold patrika, a Pichwai save-the-date, and photo "meet the couple" reels). No frames, artwork, music, logos or watermarks from those reels or their creators are used. Users who want photorealistic AI art generate it themselves with their own tools and upload it.
+
 ## Third-party software (bundled in `vendor/`)
 | Library | Version | Licence |
 |---|---|---|

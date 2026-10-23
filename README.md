@@ -8,7 +8,7 @@ An Indian wedding invitation maker that runs entirely in the browser. Pick an or
 - Instagram sizes (9:16, 4:5, 1:1)
 - a music video invitation (true MP4 via WebCodecs in Chrome/Edge/Safari; WebM fallback)
 - a self-hosted wedding website (.zip)
-- **viral reel invitations**: 8-scene hand-painted watercolour wedding stories (Shiv–Parvati, Radha–Krishna, Sita–Ram, royal and modern), about 34 s, 9:16 MP4 in Full HD or 4K
+- **viral reel invitations**: 6 realistic or photo templates (Mangal Patrika, Divya Sandesh, Shahi Lal Patrika, Pichwai Save the Date, Meet the Couple, Ghar Ka Beta) built on public-domain Raja Ravi Varma paintings, your photos or your own AI clips, plus 5 watercolour stories; 9:16 MP4 in Full HD or 4K
 
 A **My Account** page saves your names, families, venue and functions on this device, so every new card or reel can be filled in with one tap.
 
@@ -84,6 +84,9 @@ scripts/
   render/card.js        Canvas renderer: layout engine with auto-fit text, frames, pages
   render/reel.js        Cinematic reel videos: painted sacred scenes, deity symbols, timed text scenes
   render/watercolor.js  Procedural watercolour engine: paper, washes, granulation, figures seen from behind, sacred objects
+  render/artreel.js     Realistic-art reels: paintings, photo stickers, uploaded AI images/clips (frame-accurate), patrika cards, scrolls, doors, velvet & mandalas
+  data/art.js           Bundled Ravi Varma artwork (with licences & sources) and copy-ready AI prompts
+  fx.js                 Header clock, wedding calendar popover with countdown, cursor glow/sparkles and 3D card tilt
   render/story.js       8-scene story timeline + 5 viral templates (Divine Union, Vrindavan Prem, Siya Ram Vivah, Rajwada Royal, Pastel Promise)
   render/motifs.js      Original ornaments: lotus, paisley, mandala, marigold, toran, diya, arches…
   data/templates.js     95 template definitions + palettes + fonts (data-driven)
@@ -98,6 +101,7 @@ scripts/
 vendor/                 jsPDF 2.5.2, JSZip 3.10.1, qrcode-generator 1.4.4, mp4-muxer 5.1.3 (local copies + licences)
 assets/fonts/           WOFF2 font files (SIL OFL)
 assets/og-image.png     Social preview image
+assets/art/             Raja Ravi Varma paintings (public domain / CC BY 4.0 Wellcome Collection), see ATTRIBUTION.md
 icons/                  Favicons & app icons
 ```
 

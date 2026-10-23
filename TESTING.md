@@ -59,6 +59,20 @@ Run these checks locally (`python3 -m http.server 8000`) and again on the live G
 - [ ] **Download poster (PNG)** saves 1080×1920
 - [ ] The reel appears in My Designs with a painted thumbnail and opens in the reel editor
 
+## Realistic reels
+- [ ] Gallery shows “Realistic & trending” (6) and “Watercolour stories” (5) with painted or real-art thumbnails
+- [ ] Mangal Patrika: Kailash painting through clouds, Ganesh, patrika card, swastik drawn stroke by stroke, one card per function day, families, closing. Hindi text renders correctly.
+- [ ] Upload an image, then an MP4 clip, to a scene slot. Both appear in the preview and in the exported MP4. **Remove** restores the painting.
+- [ ] **AI prompt** copies a prompt to the clipboard
+- [ ] Meet the Couple / Ghar Ka Beta: a transparent PNG gets a white sticker outline, a normal photo gets a white border. Fun tags appear around the photo.
+- [ ] A tithi typed on a function shows on its scene. Nothing is calculated.
+- [ ] The last frame shows the artwork credit, and step 3 lists the credits with a copy button
+
+## Clock, calendar & mouse effects
+- [ ] The header clock ticks every second. Clicking it opens the calendar with today highlighted.
+- [ ] Saved functions show as gold dots, the countdown shows the next one, and clicking a dot lists the functions with links
+- [ ] With a mouse, a soft golden glow and sparkles follow the cursor, and cards tilt. The “Cursor sparkles” switch turns them off (remembered). Nothing appears on touch screens or with reduced motion.
+
 ## My Account (#/account)
 - [ ] Create a profile, save, reload: it is still there and marked Default
 - [ ] **Card** and **Reel** buttons open new designs filled with the saved names, venue and functions
