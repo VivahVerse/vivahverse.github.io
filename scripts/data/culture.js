@@ -17,6 +17,7 @@ export const INVOCATIONS = [
   // Hindu
   { id: 'ganesh', group: 'Ganesh', label: 'Shri Ganeshaya Namah', text: { en: '|| Shri Ganeshaya Namah ||', hi: '॥ श्री गणेशाय नमः ॥' } },
   { id: 'om', group: 'Vedic mantra', label: 'Om', text: { en: 'ॐ', hi: 'ॐ' } },
+  { id: 'mangalam-vishnu', group: 'Vishnu & Lakshmi', label: 'मंगलम् भगवान विष्णुः', meaning: 'Auspicious is Lord Vishnu, auspicious is He whose banner bears Garuda, auspicious is the lotus-eyed one. Hari is the home of all auspiciousness.', translit: 'Mangalam Bhagwan Vishnuh, Mangalam Garudadhvajah\nMangalam Pundarikakshah, Mangalaya Tano Harih', text: { en: 'मंगलम् भगवान विष्णुः, मंगलम् गरुडध्वजः।\nमंगलम् पुण्डरीकाक्षः, मंगलाय तनो हरिः॥', hi: 'मंगलम् भगवान विष्णुः, मंगलम् गरुडध्वजः।\nमंगलम् पुण्डरीकाक्षः, मंगलाय तनो हरिः॥' } },
   { id: 'vakratunda', group: 'Ganesh', label: 'Vakratunda Mahakaya (Ganesh shloka)', text: { en: 'Vakratunda Mahakaya Suryakoti Samaprabha\nNirvighnam Kuru Me Deva Sarva Karyeshu Sarvada', hi: 'वक्रतुण्ड महाकाय सूर्यकोटि समप्रभ।\nनिर्विघ्नं कुरु मे देव सर्वकार्येषु सर्वदा॥' } },
   { id: 'sarva-mangala', group: 'Devi', label: 'Sarva Mangala Mangalye (Devi shloka)', text: { en: 'Sarva Mangala Mangalye Shive Sarvartha Sadhike\nSharanye Tryambake Gauri Narayani Namostute', hi: 'सर्वमङ्गलमाङ्गल्ये शिवे सर्वार्थसाधिके।\nशरण्ये त्र्यम्बके गौरि नारायणि नमोऽस्तु ते॥' } },
   { id: 'durga', group: 'Regional', label: 'Shubho Bibaho (Bengali)', text: { en: '|| Shubho Bibaho ||', hi: '॥ शुभ विवाह ॥' } },
