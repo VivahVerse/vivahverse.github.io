@@ -600,7 +600,7 @@ const SCENES = {
     let y = cy + ch * 0.12;
     tl.T(tl.ad.blessings).split('\n').filter(Boolean).slice(0, 4).forEach((l, j) => { tl.L(ctx, l, W / 2, y, { role: 'deva', size: u * 4.2, color: RED, alpha: rev(local, 1.1 + j * 0.25), maxW: cw * 0.85 }); y += u * 6.2; });
     y += u * 9;
-    const hb = tl.T(tl.ad.honor.bride), hg = tl.T(tl.ad.honor.groom);
+    const hb = (tl.ad.honor.bride?.[tl.lg] || ''), hg = (tl.ad.honor.groom?.[tl.lg] || '');
     const firstIsBride = tl.design.couple.order !== 'groom';
     const h1 = firstIsBride ? hb : hg, h2 = firstIsBride ? hg : hb;
     tl.L(ctx, `${h1 ? h1 + ' ' : ''}${N.first}`, W / 2, y + u * 4, { role: 'heavy', size: u * 10.5, color: MAROON, alpha: rev(local, 2.2), maxW: cw * 0.86 });
@@ -781,7 +781,7 @@ const SCENES = {
     ctx.save(); ctx.beginPath(); ctx.rect(fx, fy, fw, fh); ctx.clip(); tl.art(ctx, 'couple', p, { z: 1.1 }, { z: 1.22 }, [fx, fy, fw, fh]); ctx.restore();
     ctx.restore();
     const N = tl.names();
-    const hb = tl.T(tl.ad.honor.bride), hg = tl.T(tl.ad.honor.groom), bf = tl.design.couple.order !== 'groom';
+    const hb = (tl.ad.honor.bride?.[tl.lg] || ''), hg = (tl.ad.honor.groom?.[tl.lg] || ''), bf = tl.design.couple.order !== 'groom';
     tl.L(ctx, `${(bf ? hb : hg) ? (bf ? hb : hg) + ' ' : ''}${N.first}`, W / 2, H * 0.73, { role: 'heavy', size: u * 7.5, color: GOLDT, alpha: rev(local, 1.2), shadow: 'rgba(0,0,0,.5)' });
     tl.L(ctx, tl.lg === 'hi' ? 'संग' : 'weds', W / 2, H * 0.79, { role: tl.lg === 'hi' ? 'deva' : 'script', size: u * 5.5, color: '#FFE7B0', alpha: rev(local, 1.6) });
     tl.L(ctx, `${(bf ? hg : hb) ? (bf ? hg : hb) + ' ' : ''}${N.second}`, W / 2, H * 0.86, { role: 'heavy', size: u * 7.5, color: GOLDT, alpha: rev(local, 2), shadow: 'rgba(0,0,0,.5)' });
